@@ -14,7 +14,7 @@ import sys
 import time
 from pathlib import Path
 
-from .builder import build
+from .builder import Build, build, scale_for_vigraham
 from .export import export_parts, export_stl, inspect_parts
 from .help import about_text, glossary_text
 from .io import TempleFormatError, load_any, save_temple
@@ -47,15 +47,33 @@ def find_preset(name: str) -> MandapaParams:
     return PRESETS[matches[0]]
 
 
-def parse_bed(text: str) -> tuple[float, float, float]:
+def parse_triple(text: str, flag: str, names: str) -> tuple[float, float, float]:
     parts = [t for t in text.replace("x", ",").replace("X", ",").split(",") if t.strip()]
     try:
         values = tuple(float(t) for t in parts)
     except ValueError:
         values = ()
     if len(values) != 3 or any(v <= 0 for v in values):
-        raise ValueError(f"--bed expects three positive sizes X,Y,Z in mm, got {text!r}")
+        raise ValueError(f"{flag} expects three positive sizes {names} in mm, got {text!r}")
     return values
+
+
+def parse_bed(text: str) -> tuple[float, float, float]:
+    return parse_triple(text, "--bed", "X,Y,Z")
+
+
+def vigraham_note(result: Build, size: tuple[float, float, float]) -> str:
+    """What the export does for the image: the scale applied, and whether it passes the dvara."""
+    s, cell = result.params.scale, result.layout.cell
+    w, d, h = size
+    text = f"scaled by {s:.3f} so the garbhagriha holds a {w:g} x {d:g} x {h:g} mm vigraham"
+    if cell is None:
+        return text
+    dw, dh = cell.door_w * s, cell.door_h * s
+    text += f"; the dvara is {dw:.1f} x {dh:.1f} mm"
+    if min(w, d) > dw or h > dh:
+        text += ", so the image goes in before the roof (--split)"
+    return text
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -75,6 +93,9 @@ def main(argv: list[str] | None = None) -> int:
                     help="randomise the design (optionally from a fixed seed)")
     ap.add_argument("--set", "-s", action="append", default=[], metavar="NAME=VALUE",
                     help="override one parameter, e.g. --set pillars_x=3")
+    ap.add_argument("--vigraham", metavar="W,D,H",
+                    help="set the export scale so the garbhagriha holds an image this big "
+                    "(mm, with 1 mm clearance); needs a sanctum")
     ap.add_argument("--save-params", metavar="FILE",
                     help="write the effective parameters: a <temple> document for .xml, else JSON")
     ap.add_argument("--no-union", action="store_true",
@@ -123,6 +144,16 @@ def main(argv: list[str] | None = None) -> int:
         overrides[name.strip()] = value.strip()
     if overrides:
         params = MandapaParams.from_dict({**params.to_dict(), **overrides})
+    vigraham = None
+    if args.vigraham:
+        try:
+            vigraham = parse_triple(args.vigraham, "--vigraham", "W,D,H")
+            params = scale_for_vigraham(params, vigraham)
+        except ValueError as exc:
+            ap.error(str(exc))
+        if params.scale > 10.0:
+            print(f"the image needs scale {params.scale:.2f}; the panel stops at 10", file=sys.stderr)
+            params = params.clamped()
     if args.save_params:
         save_params(params, args.save_params)
 
@@ -153,6 +184,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"wrote {', '.join(str(p) for p in paths)} in {time.perf_counter() - t0:.1f}s")
     for note in result.notes:
         print(f"note       {note}")
+    if vigraham is not None:
+        print(f"note       {vigraham_note(result, vigraham)}")
     for report in reports:
         print()
         print(report.summary())

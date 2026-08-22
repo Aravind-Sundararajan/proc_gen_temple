@@ -48,9 +48,10 @@ APP_NAME = "Mandapa Generator"
 
 DESCRIPTION = (
     "A parametric generator for a small Dravidian mandapa — the pillared pavilion of a "
-    "South-Indian temple — that exports a 3D-printable STL or 3MF. Fifty-odd knobs describe "
-    "the building in the vocabulary of the shilpa texts; the preview rebuilds as you turn "
-    "them; every part is a closed solid and every export is one watertight body."
+    "South-Indian temple, with a garbhagriha for the vigraham when you want one — that "
+    "exports a 3D-printable STL or 3MF. Sixty-one knobs describe the building in the vocabulary "
+    "of the shilpa texts; the preview rebuilds as you turn them; every part is a closed solid "
+    "and every export is one watertight body."
 )
 
 # (what, which proportions it gave us, where)
@@ -154,6 +155,13 @@ GLOSSARY: dict[str, str] = {
     "kakshasana": "The sloping seat-back parapet between the outer pillars of a hall.",
     "jali": "A perforated lattice screen.",
     "pitha": "A small moulded altar platform; an adhishthana in miniature.",
+    "garbhagriha": "The sanctum: the small closed cell the vigraham stands in, behind or within the hall.",
+    "vigraham": "The image of the deity, installed in the garbhagriha.",
+    "dvara": "The doorway of the sanctum; the texts make it twice as high as it is wide.",
+    "udumbara": "The raised threshold of the sanctum doorway, level with its floor.",
+    "devakoshtha": "A niche on the outer wall of a sanctum, framed by pilasters, for a sculpted image.",
+    "vimana": "The tower over the sanctum: storeys of shrinking tiers under a griva and a sikhara.",
+    "sreekovil": "The Kerala sanctum: a free-standing cell under its own roof, inside the hall's.",
 }
 
 

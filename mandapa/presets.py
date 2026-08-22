@@ -78,6 +78,23 @@ PRESETS: dict[str, MandapaParams] = {
         steps=True, steps_sides="front", steps_width=0.3, hastihasta=True,
         jali="back+sides", kakshasana="sides", printer_profile="resin",
     ),
+    # Early Chola: the small structural temple's plan — a garbhagriha the width of the
+    # building and two bays deep behind a one-bay porch (the ardhamandapa), so the outer
+    # pillars become the wall pilasters with a devakoshtha between each pair, and the
+    # vimana's three talas and octagonal sikhara rise inside the hara.  Four pillars across
+    # put the dvara in a bay, not behind a pillar.  The pitha inside waits for the vigraham.
+    "Early Chola shrine": MandapaParams(
+        footprint_x=100.0, footprint_y=124.0, pillars_x=4, pillars_y=4, pillar_inset=1.0,
+        plinth_height=13.0, plinth_style="padabandha", plinth_galapadas=True, plinth_padma=True,
+        pillar_width=6.0, pillar_height=36.0, shaft_style="chola", corbel_style="taranga",
+        medallions=True, kattu_bands=True, frieze_height=3.0, bhuta_frieze=True, dentils=False,
+        kapota_height=4.5, kapota_projection=4.5, kudus=True,
+        roof_style="hara", salas_per_side=1, panjaras=False, nasi=True, parapet_height=10.0,
+        tiers=3, tier_ratio=0.72, sikhara_shape="octagonal", finial=True,
+        steps=True, steps_sides="front", step_count=4, hastihasta=True,
+        sanctum="back", sanctum_bays=3, sanctum_wall=1.2, dvara_width=0.5, sanctum_floor=0.08,
+        sanctum_niches=True, vimana=True, centre_feature="pitha", printer_profile="fdm_0.25",
+    ),
     # Sixty millimetres on a 0.4 mm nozzle: everything that would blur is off, what is
     # left is sized to the nozzle, and every underside obeys the 45° rule.
     "Desk mandapa": MandapaParams(

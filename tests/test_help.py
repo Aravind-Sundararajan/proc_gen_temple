@@ -21,7 +21,7 @@ PACKAGE = Path(about.__file__).parent
 # Choice values that are plain English and need no glossary entry.
 ENGLISH = {
     "plain", "square", "octagonal", "sixteen", "round", "fluted", "varied", "bevel", "flat",
-    "stepped", "none", "pedestal", "front", "back", "sides", "front+back", "back+sides", "all",
+    "stepped", "none", "pedestal", "front", "back", "centre", "sides", "front+back", "back+sides", "all",
     "fdm_0.4", "fdm_0.25", "resin",
 }
 

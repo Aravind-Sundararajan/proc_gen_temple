@@ -387,6 +387,29 @@ def pedestal(s: float, z0: float, h: float) -> list[Solid]:
     return parts
 
 
+def wall_frame(
+    face: float, c: float, z0: float, width: float, height: float, band: float, proud: float, name: str
+) -> list[Solid]:
+    """Raised surround of an opening or a panel on the +X face at ``x = face``: two jambs and a
+    lintel, ``band`` wide and ``proud`` high, sunk OVERLAP into the wall.  ``width`` and
+    ``height`` are the clear size inside the frame, centred on ``c`` along y and standing on
+    ``z0``; the jambs run the full height so the corners are one piece.
+
+    A framed rectangle is what makes a doorway read as a dvara and a flat panel as a niche —
+    the eye takes the frame for an opening before it looks for depth, which is why a
+    devakoshtha can be relief here instead of a recess the mesh kit cannot cut.  ``proud``
+    stays under 1.5 mm (see the module note on bosses) so the lintel's underside prints as
+    it is.
+    """
+    x0, x1 = face - OVERLAP, face + proud
+    lo, hi = c - width / 2.0, c + width / 2.0
+    return [
+        box_between((x0, lo - band, z0), (x1, lo, z0 + height + band), name=name),
+        box_between((x0, hi, z0), (x1, hi + band, z0 + height + band), name=name),
+        box_between((x0, lo - OVERLAP, z0 + height), (x1, hi + OVERLAP, z0 + height + band), name=name),
+    ]
+
+
 # ---- generic placement ---------------------------------------------------------------
 
 

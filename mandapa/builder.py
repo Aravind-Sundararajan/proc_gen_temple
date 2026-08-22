@@ -34,6 +34,18 @@ kumbha, padma, phalaka, potika, with the padmabandha ring below (see
 :func:`pillar`).  Ornament proportions are given at the function that places
 them, with the precedent they are taken from.
 
+Why the sanctum walls sit on the pillar lines
+---------------------------------------------
+A garbhagriha could be a box of any size on the floor, but a wall that crosses a
+pillar part-way shows a sliver of shaft and half a capital.  Walls centred on the
+grid lines swallow their pillars whole, and what emerges — the flare of the
+capital, the corbel under the beam — is exactly the wall pilaster of a Dravidian
+shrine, for free.  The cell therefore spans whole bays, centred on the hall, and
+the pillars it has no use for (inside it, or standing in its doorway) are not
+built at all; the peg plan reads :attr:`Layout.pillar_points` rather than the
+grid for that reason.  The doorway is the one gap in the cell, which is also what
+keeps the union one body: a cell without a door would be a sealed void.
+
 Printing
 --------
 Two rules run through every function.  Under ``printable_overhangs`` no member
@@ -75,6 +87,7 @@ from .ornament import (
     placed,
     pushpa_bud,
     seat_profile,
+    wall_frame,
 )
 from .params import MandapaParams
 
@@ -85,6 +98,54 @@ def note_once(notes: list[str], text: str) -> None:
     """Ornament is placed per pillar or per side; the reader wants to hear each reason once."""
     if text not in notes:
         notes.append(text)
+
+
+@dataclass
+class Cell:
+    """The garbhagriha as every other member sees it (mm, world frame).
+
+    ``x0..x1`` and ``y0..y1`` are the wall centre lines, which are pillar lines of the grid
+    (``i0..i1``, ``j0..j1`` their indices), and ``t`` is the wall thickness.  The dvara is
+    centred on ``cx`` in the front (-Y) wall.  ``clear`` is what a vigraham gets: wall face
+    to wall face, and the raised floor to the beam underside.
+    """
+
+    i0: int
+    i1: int
+    j0: int
+    j1: int
+    x0: float
+    x1: float
+    y0: float
+    y1: float
+    t: float
+    z_floor: float  # top of the raised floor and of the threshold
+    z_top: float  # wall top: the beam underside
+    door_w: float
+    door_h: float
+
+    @property
+    def cx(self) -> float:
+        return (self.x0 + self.x1) / 2.0
+
+    @property
+    def cy(self) -> float:
+        return (self.y0 + self.y1) / 2.0
+
+    @property
+    def outer(self) -> tuple[float, float, float, float]:
+        """``x lo, x hi, y lo, y hi`` of the outer wall faces."""
+        h = self.t / 2.0
+        return self.x0 - h, self.x1 + h, self.y0 - h, self.y1 + h
+
+    @property
+    def clear(self) -> tuple[float, float, float]:
+        """Width, depth and height of the cavity."""
+        return self.x1 - self.x0 - self.t, self.y1 - self.y0 - self.t, self.z_top - self.z_floor
+
+    def holds(self, i: int, j: int) -> bool:
+        """Whether grid point ``(i, j)`` lies strictly inside the cell."""
+        return self.i0 < i < self.i1 and self.j0 < j < self.j1
 
 
 @dataclass
@@ -118,6 +179,9 @@ class Layout:
     roof_z: float
     slab_hx: float
     slab_hy: float
+    # appended: the sanctum, and the grid points that carry a pillar (all of them without one)
+    cell: Cell | None = None
+    pillar_points: list[tuple[int, int]] = field(default_factory=list)
 
 
 @dataclass
@@ -199,7 +263,7 @@ def compute_layout(p: MandapaParams, notes: list[str]) -> Layout:
     roof_z = kapota_z0 + kapota_h + p.roof_slab
     slab_hx, slab_hy = ent_hx + 0.35 * kapota_p, ent_hy + 0.35 * kapota_p
 
-    return Layout(
+    L = Layout(
         plinth_h=H, proj=proj, body_hx=body_hx, body_hy=body_hy, top_hx=top_hx, top_hy=top_hy,
         floor_z=floor_z, pillar_w=pw, pillar_xs=xs, pillar_ys=ys, pillar_h=p.pillar_height,
         shaft_h=shaft_h, capital_h=capital_h, corbel_h=corbel_h, corbel_reach=reach,
@@ -208,6 +272,90 @@ def compute_layout(p: MandapaParams, notes: list[str]) -> Layout:
         kapota_z0=kapota_z0, kapota_p=kapota_p, kapota_h=kapota_h, roof_z=roof_z,
         slab_hx=slab_hx, slab_hy=slab_hy,
     )
+    L.cell = cell_layout(p, L, notes)
+    L.pillar_points = [
+        (i, j) for i in range(len(xs)) for j in range(len(ys)) if not pillar_omitted(L, i, j)
+    ]
+    return L
+
+
+def centred_run(n_bays: int, k: int) -> tuple[int, int]:
+    """Grid indices ``(i0, i1)`` of a run of ``k`` bays centred on a row of ``n_bays``.
+
+    A run is centred only when the bays left over split evenly between the two sides, so a
+    count of the wrong parity is narrowed by one, or widened when it cannot narrow: a
+    three-pillar row has no single centre bay, only a centre pillar, so its centred cell is
+    both bays.
+    """
+    k = max(1, min(k, n_bays))
+    if (n_bays - k) % 2:
+        k = k - 1 if k > 1 else k + 1
+    i0 = (n_bays - k) // 2
+    return i0, i0 + k
+
+
+def cell_layout(p: MandapaParams, L: Layout, notes: list[str]) -> Cell | None:
+    """Where the garbhagriha stands and how big its dvara is, or ``None`` with a note.
+
+    The cell spans whole bays: centred on both axes for ``centre``, centred across and
+    against the back row for ``back``, where it keeps at least one bay in front of it for
+    the hall when the grid has one to give.  The dvara keeps the texts' proportion, twice
+    as high as wide: a wall too low for the width asked narrows the opening rather than
+    squashing it, with a lintel of at least 0.15 of the wall kept above.  A cell whose walls
+    would leave no cavity, or no doorway the printer can make, is not built: a sanctum
+    nothing fits into is the thing this feature exists to prevent.
+    """
+    if p.sanctum == "none":
+        return None
+    xs, ys = L.pillar_xs, L.pillar_ys
+    nx, ny = len(xs) - 1, len(ys) - 1
+    i0, i1 = centred_run(nx, p.sanctum_bays)
+    if i1 - i0 != p.sanctum_bays:
+        grew = "widened" if i1 - i0 > p.sanctum_bays else "narrowed"
+        notes.append(f"sanctum {grew} to {i1 - i0} bay(s) to sit centred on the {len(xs)}-pillar rows")
+    if p.sanctum == "centre":
+        j0, j1 = centred_run(ny, p.sanctum_bays)
+        if j1 - j0 != p.sanctum_bays and j1 - j0 != i1 - i0:
+            notes.append(f"sanctum made {j1 - j0} bay(s) deep to sit centred on the {len(ys)}-pillar rows")
+    else:
+        j1 = ny
+        j0 = ny - min(p.sanctum_bays, max(ny - 1, 1))
+    if i1 - i0 == nx and j1 - j0 == ny:
+        notes.append("the sanctum takes the whole hall: no open bay is left round it")
+    t = max(p.sanctum_wall * L.pillar_w, 2.0 * p.min_feature, 1.0)
+    x0, x1, y0, y1 = xs[i0], xs[i1], ys[j0], ys[j1]
+    clear_w, clear_d = x1 - x0 - t, y1 - y0 - t
+    if min(clear_w, clear_d) < max(3.0, 4.0 * p.min_feature):
+        notes.append("pillars too close for a sanctum with a cavity between its walls; skipped")
+        return None
+    z_floor = L.floor_z + p.sanctum_floor * p.pillar_height
+    z_top = L.beam_z0
+    wall_h = z_top - z_floor
+    lintel = max(0.15 * wall_h, 2.0 * p.min_feature, 1.0)
+    door_w = min(p.dvara_width * clear_w, (wall_h - lintel) / 2.0)
+    door_h = 2.0 * door_w
+    if min(door_w, door_h) < max(1.0, 2.0 * p.min_feature):
+        notes.append("walls too low for a doorway the printer can make; sanctum skipped")
+        return None
+    cell = Cell(i0, i1, j0, j1, x0, x1, y0, y1, t, z_floor, z_top, door_w, door_h)
+    w, d, h = cell.clear
+    notes.append(
+        f"garbhagriha: {w:.1f} x {d:.1f} mm between the walls, {h:.1f} mm from its floor to "
+        f"the beams; dvara {door_w:.1f} x {door_h:.1f} mm"
+    )
+    return cell
+
+
+def pillar_omitted(L: Layout, i: int, j: int) -> bool:
+    """A pillar is left out where the sanctum has no use for it: inside the cell, or on the
+    front wall line within the doorway, where it would stand in the door."""
+    cell = L.cell
+    if cell is None:
+        return False
+    if cell.holds(i, j):
+        return True
+    in_door = abs(L.pillar_xs[i] - cell.cx) < cell.door_w / 2.0 + L.pillar_w / 2.0
+    return j == cell.j0 and cell.i0 <= i <= cell.i1 and in_door
 
 
 # ---- profile helpers ------------------------------------------------------------------
@@ -341,6 +489,56 @@ def steps_opening(p: MandapaParams, L: Layout, side: str) -> float:
     return W / 2.0 + t + 0.3
 
 
+def wall_block(L: Layout, side: str) -> tuple[float, float] | None:
+    """The stretch of ``side``'s outer pillar line that a sanctum wall occupies, in the side's
+    local X (see :func:`side_frame`), or ``None`` when the cell does not reach that row.
+
+    Seats and screens are built in a frame where every side runs along local X and is then
+    turned into place; the front keeps world X, the back (turned 180°) sees -X, and the
+    flanks see +Y and -Y.  Screens are built in the east frame instead, but the two frames
+    agree on this mapping, so one function serves both.
+    """
+    cell = L.cell
+    if cell is None:
+        return None
+    xo0, xo1, yo0, yo1 = cell.outer
+    last_i, last_j = len(L.pillar_xs) - 1, len(L.pillar_ys) - 1
+    if side == "S" and cell.j0 == 0:
+        return xo0, xo1
+    if side == "N" and cell.j1 == last_j:
+        return -xo1, -xo0
+    if side == "E" and cell.i1 == last_i:
+        return yo0, yo1
+    if side == "W" and cell.i0 == 0:
+        return -yo1, -yo0
+    return None
+
+
+def open_spans(p: MandapaParams, L: Layout, side: str, end: float) -> list[tuple[float, float]]:
+    """Stretches of ``[-end, end]`` along ``side`` a seat can run on: the steps' gap and a
+    sanctum wall are taken out."""
+    blocked: list[tuple[float, float]] = []
+    opening = steps_opening(p, L, side)
+    if opening > 0:
+        blocked.append((-opening, opening))
+    block = wall_block(L, side)
+    if block is not None:
+        blocked.append(block)
+    spans = [(-end, end)]
+    for lo, hi in blocked:
+        cut: list[tuple[float, float]] = []
+        for a, b in spans:
+            if hi <= a or lo >= b:
+                cut.append((a, b))
+                continue
+            if lo > a:
+                cut.append((a, lo))
+            if hi < b:
+                cut.append((hi, b))
+        spans = cut
+    return spans
+
+
 def steps(p: MandapaParams, L: Layout) -> list[Solid]:
     """Sopana on every chosen side, with optional balustrades ending in a hastihasta curl.
 
@@ -417,8 +615,7 @@ def kakshasana(p: MandapaParams, L: Layout, notes: list[str]) -> list[Solid]:
         poly = [(-line - d, z) for d, z in prof]
         # run to the outer face of the corner pillars, and over the neighbouring seat's lean
         end = along[-1] + d_out + (lean if all(s in sides for s in perpendicular[side]) else 0.0)
-        open_half = steps_opening(p, L, side)
-        spans = [(-end, -open_half), (open_half, end)] if open_half > 0 else [(-end, end)]
+        spans = open_spans(p, L, side, end)
         wall = [extrude(poly, "yz", x0, x1, name="kakshasana") for x0, x1 in spans if x1 - x0 >= 2.0]
         parts += placed(wall, 0.0, 0.0, _SIDE_ANGLE[side])
     return parts
@@ -465,10 +662,13 @@ def jali(p: MandapaParams, L: Layout, notes: list[str]) -> list[Solid]:
         _, _, _, along = side_frame(p, L, side)
         line = pillar_line(L, side)
         open_half = steps_opening(p, L, side)
+        block = wall_block(L, side)
         for c0, c1 in pairwise(along):
             y0, y1 = c0 + 0.8 * a, c1 - 0.8 * a
             if open_half > 0 and y1 > -open_half and y0 < open_half:
                 continue
+            if block is not None and block[0] < (c0 + c1) / 2.0 < block[1]:
+                continue  # a sanctum wall fills this bay
             if y1 - y0 < hole + 2 * bar:
                 continue
             panel = lattice(y0, y1, z0, z1, bar, hole, p.printable_overhangs)
@@ -479,28 +679,42 @@ def jali(p: MandapaParams, L: Layout, notes: list[str]) -> list[Solid]:
 
 
 def centre_feature(p: MandapaParams, L: Layout, notes: list[str]) -> list[Solid]:
-    """A pitha (miniature adhishthana) or an image pedestal in the middle of the floor.
+    """A pitha (miniature adhishthana) or an image pedestal in the middle of the floor — or,
+    when there is a garbhagriha, on its floor, where the vigraham's own pitha belongs.
 
     Sized to 1.2 pillar widths but never closer than a pillar width to any pillar, so an
-    odd-by-odd grid — which has a pillar on the centre — gets a note instead.
+    odd-by-odd grid — which has a pillar on the centre — gets a note instead.  Inside the
+    cell it is capped at 0.3 of the clear width, and the height left above it is reported,
+    because that is what the image has to fit into.
     """
     if p.centre_feature == "none":
         return []
-    a = L.pillar_w / 2.0
-    xs, ys = L.pillar_xs, L.pillar_ys
-    s_max = min(max(abs(x), abs(y)) - a - 1.0 for x in xs for y in ys)
-    spacing = min(xs[1] - xs[0], ys[1] - ys[0])
-    s = min(1.2 * L.pillar_w, 0.3 * spacing, s_max)
+    cell = L.cell
+    if cell is not None:
+        w, d, h_clear = cell.clear
+        s = min(1.2 * L.pillar_w, 0.3 * min(w, d))
+        cx, cy, z0 = cell.cx, cell.cy, cell.z_floor - OVERLAP
+    else:
+        a = L.pillar_w / 2.0
+        xs, ys = L.pillar_xs, L.pillar_ys
+        s_max = min(max(abs(x), abs(y)) - a - 1.0 for x in xs for y in ys)
+        spacing = min(xs[1] - xs[0], ys[1] - ys[0])
+        s = min(1.2 * L.pillar_w, 0.3 * spacing, s_max)
+        cx, cy, z0 = 0.0, 0.0, L.floor_z - OVERLAP
     if s < 1.5:
         notes.append("no room between the pillars for a centre feature; skipped")
         return []
-    z0 = L.floor_z - OVERLAP
     if p.centre_feature == "pitha":
         H = max(0.35 * L.plinth_h, 1.5)
         pr = min(max(0.12 * H, 0.4), 0.3 * s)
         prof = [(d, z + z0) for d, z in plinth_profile(p.plinth_style, H, pr)]
-        return [rect_sweep(prof, s - pr, s - pr, name="pitha")]
-    return pedestal(s, z0, max(0.35 * p.pillar_height, 2.0))
+        parts = [rect_sweep(prof, s - pr, s - pr, name="pitha")]
+    else:
+        H = max(0.35 * p.pillar_height, 2.0)
+        parts = pedestal(s, z0, H)
+    if cell is not None:
+        notes.append(f"{p.centre_feature} on the garbhagriha floor: {h_clear - H:.1f} mm clear above it")
+    return placed(parts, cx, cy, 0.0)
 
 
 _SHAFT_SEGMENTS: dict[str, list[tuple[int, float, float]]] = {
@@ -885,13 +1099,23 @@ def hara(p: MandapaParams, L: Layout, notes: list[str]) -> list[Solid]:
 
 
 def stepped_roof(p: MandapaParams, L: Layout, notes: list[str]) -> list[Solid]:
-    """Tiered pyramid: shrinking storeys with small eaves, topped by a neck, dome and finial."""
-    th, r = p.parapet_height, p.tier_ratio
+    """Tiered pyramid over the whole roof: :func:`tower` on the slab inside the parapet inset."""
     hx, hy = L.slab_hx - p.parapet_inset, L.slab_hy - p.parapet_inset
+    return tower(p, hx, hy, L.roof_z - OVERLAP, notes, "roof")
+
+
+def tower(p: MandapaParams, hx: float, hy: float, z: float, notes: list[str], what: str) -> list[Solid]:
+    """Tiered pyramid on a ``2 hx × 2 hy`` footprint at the origin: shrinking storeys with small
+    eaves, topped by a neck, dome and finial.
+
+    The stepped roof over a hall and the vimana over a garbhagriha are the same form at two
+    sizes — the texts count both in talas — so they are one function, and the Roof group's
+    tiers, ratio and sikhara shape drive both.
+    """
+    th, r = p.parapet_height, p.tier_ratio
     if hx < 2.0 or hy < 2.0:
-        notes.append("roof too small for tiers; skipped")
+        notes.append(f"{what} too small for tiers; skipped")
         return []
-    z = L.roof_z - OVERLAP
     parts: list[Solid] = []
     for _ in range(p.tiers):
         eave = min(0.32 * th, 0.2 * min(hx, hy))
@@ -931,13 +1155,19 @@ def kerala_roof(p: MandapaParams, L: Layout, notes: list[str]) -> list[Solid]:
     walls.  Pitch is a parameter because the texts give none: 30° is the common
     tiled pitch, steeper roofs are the thatched ones.
     """
-    hx, hy = L.slab_hx, L.slab_hy
+    return hipped(p, L.slab_hx, L.slab_hy, L.roof_z, p.eave_overhang, notes, "roof")
+
+
+def hipped(
+    p: MandapaParams, hx: float, hy: float, z0: float, eave: float, notes: list[str], what: str
+) -> list[Solid]:
+    """A hipped roof at the origin over a ``2 hx × 2 hy`` top at ``z0``, with its ridge crest
+    and finials; the hall's roof and the sreekovil's second roof are the same form."""
     if hx < 2.0 or hy < 2.0:
-        notes.append("roof too small for a sloping roof; skipped")
+        notes.append(f"{what} too small for a sloping roof; skipped")
         return []
-    eave = p.eave_overhang
     fascia = max(1.0, p.min_feature)
-    roof = hipped_roof(hx, hy, L.roof_z, eave, fascia, p.roof_pitch, p.printable_overhangs)
+    roof = hipped_roof(hx, hy, z0, eave, fascia, p.roof_pitch, p.printable_overhangs)
     z_top = float(roof.vertices[:, 2].max())
     parts = [roof]
     ridge = max(hx, hy) - min(hx, hy)
@@ -954,11 +1184,142 @@ def kerala_roof(p: MandapaParams, L: Layout, notes: list[str]) -> list[Solid]:
     return parts
 
 
+def kerala_cell_roof(p: MandapaParams, L: Layout, cell: Cell, notes: list[str]) -> list[Solid]:
+    """The sreekovil's own roof: an upper wall rising through the hall roof's ridge and a second
+    hipped roof over it with half the eaves — the two-tiered silhouette of a Kerala shrine.
+
+    The upper wall starts at the ridge rather than where the slope passes over the cell, so
+    the second roof's eaves always clear the first: a cell near the ridge would otherwise
+    bury them in the slope and show only a stub of its apex.
+    """
+    xo0, xo1, yo0, yo1 = cell.outer
+    hx, hy = (xo1 - xo0) / 2.0, (yo1 - yo0) / 2.0
+    eave, fascia = p.eave_overhang, max(1.0, p.min_feature)
+    tan = math.tan(math.radians(p.roof_pitch))
+    z_drip = L.roof_z - OVERLAP + (eave if p.printable_overhangs else 0.0) + fascia
+    z_ridge = z_drip + (eave + min(L.slab_hx, L.slab_hy) - 0.2) * tan
+    z_b = z_ridge + max(0.12 * p.pillar_height, 2.0)
+    parts = [box_between((-hx, -hy, L.roof_z - OVERLAP), (hx, hy, z_b + OVERLAP), name="upper")]
+    parts += hipped(p, hx, hy, z_b, 0.5 * eave, notes, "vimana")
+    return placed(parts, cell.cx, cell.cy, 0.0)
+
+
+# ---- the sanctum ----------------------------------------------------------------------
+
+
+def sanctum(p: MandapaParams, L: Layout, notes: list[str]) -> list[Solid]:
+    """Garbhagriha: walls on the pillar lines, the dvara in the front wall, a raised floor with
+    its udumbara (threshold), the door surround, and a devakoshtha on every blind bay.
+
+    Walls run from the floor into the beams, so the pillars on their lines are swallowed whole
+    and only their capitals and corbels show, which is what a Dravidian wall pilaster is; the
+    doorway is the gap between two jambs under a lintel block, since nothing here is cut.  The
+    floor and the threshold are one level, a step above the hall, so the image stands higher
+    than the floor it is seen from, as it does in every sanctum.
+    """
+    cell = L.cell
+    if cell is None:
+        return []
+    xo0, xo1, yo0, yo1 = cell.outer
+    h = cell.t / 2.0
+    z0, z1 = L.floor_z - OVERLAP, cell.z_top + OVERLAP
+    cx, dw = cell.cx, cell.door_w
+    parts = [
+        box_between((xo0, cell.y1 - h, z0), (xo1, yo1, z1), name="wall"),
+        box_between((xo0, yo0, z0), (cell.x0 + h, yo1, z1), name="wall"),
+        box_between((cell.x1 - h, yo0, z0), (xo1, yo1, z1), name="wall"),
+        box_between((xo0, yo0, z0), (cx - dw / 2, cell.y0 + h, z1), name="jamb"),
+        box_between((cx + dw / 2, yo0, z0), (xo1, cell.y0 + h, z1), name="jamb"),
+        box_between(
+            (cx - dw / 2 - OVERLAP, yo0, cell.z_floor + cell.door_h),
+            (cx + dw / 2 + OVERLAP, cell.y0 + h, z1),
+            name="lintel",
+        ),
+    ]
+    if cell.z_floor > L.floor_z + 0.1:
+        parts.append(box_between(
+            (cell.x0 + h - OVERLAP, cell.y0 + h - OVERLAP, z0),
+            (cell.x1 - h + OVERLAP, cell.y1 - h + OVERLAP, cell.z_floor),
+            name="floor",
+        ))
+        parts.append(box_between(
+            (cx - dw / 2 - OVERLAP, yo0, z0),
+            (cx + dw / 2 + OVERLAP, cell.y0 + h + OVERLAP, cell.z_floor),
+            name="udumbara",
+        ))
+    # Relief is built on the +X face of the cell's own rectangle and turned to its wall.
+    # A raised band under 1.5 mm prints as surface texture (see mandapa.ornament).
+    hx, hy = (xo1 - xo0) / 2.0, (yo1 - yo0) / 2.0
+    proud = min(max(0.5, 0.8 * p.min_feature), 1.2)
+    band = max(0.12 * dw, p.min_feature)
+    beside = (cell.x1 - h) - (cx + dw / 2.0)  # wall left beside the opening for a jamb band
+    if 0.3 <= band <= 0.8 * beside:
+        parts += placed(wall_frame(hy, 0.0, cell.z_floor, dw, cell.door_h, band, proud, "dvara"), cx, cell.cy, 270.0)
+    else:
+        note_once(notes, "doorway too narrow for a dvara surround at this printer setting; skipped")
+    if p.sanctum_niches:
+        parts += niches(p, L, cell, hx, hy, proud, notes)
+    return parts
+
+
+def niches(
+    p: MandapaParams, L: Layout, cell: Cell, hx: float, hy: float, proud: float, notes: list[str]
+) -> list[Solid]:
+    """A devakoshtha per blind bay: a framed panel between the pilasters, 0.4 of the bay wide,
+    from a tenth of the wall's height to seven tenths — under the flare of the capitals.
+    Bays the doorway crosses stay plain.
+
+    Each face is the +X face of the cell turned by a quarter; a bay's offset along the face
+    is mapped with the turn (the +Y face sees -X, the -X face sees -Y), though the cell is
+    symmetric about its centre, so the pattern would read the same either way.
+    """
+    wall_h = cell.z_top - cell.z_floor
+    z0, height = cell.z_floor + 0.1 * wall_h, 0.6 * wall_h
+    xs, ys = L.pillar_xs, L.pillar_ys
+    cx, cy = cell.cx, cell.cy
+    x_bays = [((xs[i] + xs[i + 1]) / 2.0 - cx, xs[i + 1] - xs[i]) for i in range(cell.i0, cell.i1)]
+    y_bays = [((ys[j] + ys[j + 1]) / 2.0 - cy, ys[j + 1] - ys[j]) for j in range(cell.j0, cell.j1)]
+    front = [(c, w) for c, w in x_bays if abs(c) >= (w + cell.door_w) / 2.0]
+    faces = [
+        (hx, 0.0, y_bays),
+        (hy, 90.0, [(-c, w) for c, w in x_bays]),
+        (hx, 180.0, [(-c, w) for c, w in y_bays]),
+        (hy, 270.0, front),
+    ]
+    parts: list[Solid] = []
+    for dist, angle, bays in faces:
+        for c, w in bays:
+            nw = 0.4 * w
+            band = max(0.08 * nw, p.min_feature)
+            if nw < 3.0 * band or nw < 2.0 or nw + 2.0 * band > w - L.pillar_w - 1.0:
+                note_once(notes, "wall bays too narrow for devakoshtha niches at this printer setting; skipped")
+                continue
+            parts += placed(wall_frame(dist, c, z0, nw, height, band, proud, "niche"), cx, cy, angle)
+    return parts
+
+
+def vimana(p: MandapaParams, L: Layout, notes: list[str]) -> list[Solid]:
+    """The tower over the garbhagriha: the stepped roof's tiers and sikhara on the cell's own
+    footprint, rising from the slab inside the hara or from a flat roof; under a Kerala roof,
+    the sreekovil's second roof instead.  The stepped style is already the tower, so it gets
+    nothing more.
+    """
+    cell = L.cell
+    if cell is None or not p.vimana or p.roof_style == "stepped":
+        return []
+    if p.roof_style == "kerala":
+        return kerala_cell_roof(p, L, cell, notes)
+    xo0, xo1, yo0, yo1 = cell.outer
+    parts = tower(p, (xo1 - xo0) / 2.0, (yo1 - yo0) / 2.0, L.roof_z - OVERLAP, notes, "vimana")
+    return placed(parts, cell.cx, cell.cy, 0.0)
+
+
 # ---- assembly -------------------------------------------------------------------------
 
 
 def build(params: MandapaParams) -> Build:
-    """Assemble every member into named groups: plinth, steps, pillars, beams, roof, crown, enclosure.
+    """Assemble every member into named groups: plinth, steps, pillars, beams, roof, crown,
+    enclosure, sanctum.
 
     Groups are what the GUI's parts menu and the print-prep split read, so the
     first three names are a contract; the ornament joins the group of the member it
@@ -979,10 +1340,9 @@ def build(params: MandapaParams) -> Build:
         pool = [s for s in _SHAFT_SEGMENTS if s != "square"]
         pair = rng.sample(pool, 2)
         by_column = rng.random() < 0.5
-    for i, x in enumerate(L.pillar_xs):
-        for j, y in enumerate(L.pillar_ys):
-            style = pair[(i if by_column else j) % 2] if p.shaft_style == "varied" else p.shaft_style
-            pillar_parts += pillar(p, L, x, y, style, notes)
+    for i, j in L.pillar_points:
+        style = pair[(i if by_column else j) % 2] if p.shaft_style == "varied" else p.shaft_style
+        pillar_parts += pillar(p, L, L.pillar_xs[i], L.pillar_ys[j], style, notes)
 
     if p.roof_style == "hara":
         crown = hara(p, L, notes)
@@ -1007,4 +1367,27 @@ def build(params: MandapaParams) -> Build:
     enclosure = kakshasana(p, L, notes) + jali(p, L, notes) + centre_feature(p, L, notes)
     if enclosure:
         parts["enclosure"] = enclosure
+    cell = sanctum(p, L, notes)
+    if cell:
+        parts["sanctum"] = cell
+        parts["crown"] += vimana(p, L, notes)
     return Build(parts=parts, notes=notes, layout=L, params=p)
+
+
+def scale_for_vigraham(
+    params: MandapaParams, size: tuple[float, float, float], clearance: float = 1.0
+) -> MandapaParams:
+    """The same design with its export scale set so the garbhagriha holds a vigraham of
+    ``size`` — width, depth, height in mm — with ``clearance`` beside and above it.
+
+    Scale is the one knob that enlarges the building without touching a proportion, which
+    is what sizing a temple to its image calls for; a design without a sanctum has nothing
+    to fit and is refused.  The dvara is not considered: an image wider than the doorway
+    goes in before the roof, which the split export allows.
+    """
+    cell = build(params.with_(scale=1.0)).layout.cell
+    if cell is None:
+        raise ValueError("the design has no garbhagriha to hold a vigraham: set sanctum to centre or back")
+    w, d, h = cell.clear
+    need = max((size[0] + 2 * clearance) / w, (size[1] + 2 * clearance) / d, (size[2] + clearance) / h)
+    return params.with_(scale=math.ceil(need * 1000.0) / 1000.0)  # rounded up: the clearance holds

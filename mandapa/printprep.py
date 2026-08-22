@@ -226,7 +226,7 @@ def peg_plan(result: Build) -> tuple[Pegs | None, Pegs | None, list[str]]:
     radius = min(PEG_RADIUS_FACTOR * pillar_w, 0.5 * pillar_w - wall - PEG_CLEARANCE)
     floor = None
     if radius >= MIN_PEG_RADIUS:
-        points = tuple((x * s, y * s) for x in L.pillar_xs for y in L.pillar_ys)
+        points = tuple((L.pillar_xs[i] * s, L.pillar_ys[j] * s) for i, j in L.pillar_points)
         floor = Pegs(L.floor_z * s, points, radius)
     else:
         notes.append(
