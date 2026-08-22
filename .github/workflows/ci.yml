@@ -1,0 +1,105 @@
+# Lint, test and build the PyInstaller folder on windows-latest — the platform that ships — and
+# keep the folder as an artifact; a tag v* turns it into a GitHub release.
+#
+# One job, one runner: the install is the slow part (Qt is a 100 MB wheel), so lint, test and
+# build share it rather than paying for it twice.  Linux and macOS were in the matrix once and
+# were dropped as churn: there is no Mac signing identity, and the Windows build is what users
+# get.  The spec itself still builds on either by hand (`devtool build`).
+#
+# The build step calls the same devtool verb a developer runs (`devtool build` draws the icons,
+# runs PyInstaller and smoke-tests the folder), so the pipeline and the desk agree on what a
+# build is.  Under CI the smoke test starts the bundled editor only as far as its argument
+# parser — a runner has no desktop to draw on, and a windowed program that cannot render waits
+# rather than fails — and keeps the rendered screenshot for a desk (see tools/smoke_dist.py).
+name: CI
+
+on:
+  push:
+    branches: [master]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.13"
+
+jobs:
+  build:
+    name: lint, test and bundle (windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        id: python
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Poetry
+        run: pipx install poetry
+
+      - name: Cache the virtualenv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.python.outputs.python-version }}-${{ hashFiles('poetry.lock') }}
+
+      - name: Install
+        run: poetry install --with build --no-interaction
+
+      - name: Lint
+        run: poetry run ruff check mandapa tests tools
+
+      - name: Test
+        run: poetry run pytest -q
+        env:
+          QT_QPA_PLATFORM: offscreen
+
+      - name: The licence texts are committed
+        shell: bash
+        run: |
+          for f in licenses/LGPL-3.0.txt licenses/GPL-3.0.txt; do
+            test -s "$f" || { echo "::error file=$f::missing; run devtool licenses and commit licenses/"; exit 1; }
+          done
+
+      - name: Build and smoke-test
+        shell: cmd
+        run: .\devtool.bat build
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p release
+          7z a -tzip "release/proc_gen_temple-${GITHUB_REF_NAME//\//-}-windows-x64.zip" ./dist/proc_gen_temple > /dev/null
+          ls -l release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: proc_gen_temple-windows
+          path: release/*
+          if-no-files-found: error
+
+  release:
+    name: release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true

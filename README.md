@@ -185,6 +185,9 @@ mandapa/
   io/       temple_xml.py                 the versioned <temple> format, legacy JSON reader
   export.py printprep.py cli.py           union, reports, STL/3MF, split/hollow/bed, headless
   gui/      app.py theme.py viewer.py ... Qt, verbs, docks, the authored look on screen
+tools/
+  launch_gui.py launch_cli.py            the two entry points PyInstaller freezes
+  make_icons.py smoke_dist.py            the icon from the app's glyph; proof that a bundle works
 ```
 
 The dependency rule is one-directional and `tests/test_dependency_rule.py` parses every
@@ -212,6 +215,45 @@ MANDAPA_FUZZ=150 poetry run pytest tests/test_builder.py -k "fuzz or edge"
 
 Python 3.13 (pinned in `.python-version` for pyenv) or 3.14; an in-project `.venv`. The
 `.claude/skills/run` skill says how to launch, test and screenshot from a cold session.
+
+`devtool.sh` and `devtool.bat` carry the same verbs, so the desk and the pipeline agree on
+what a check or a build is:
+
+```bash
+./devtool.sh check          # ruff, then pytest: the pre-push gate   (devtool.bat check on Windows)
+./devtool.sh shot granite_dusk   # examples/granite_dusk.xml → out/granite_dusk.png
+```
+
+`setup`, `test [args]`, `fuzz`, `lint`, `check`, `run`, `export …`, `shot NAME`, `icons`,
+`licenses`, `build`, `smoke`, `clean`; `devtool help` lists them.
+
+## Packaging
+
+```bash
+./devtool.sh licenses   # once: fetch the LGPL-3.0 and GPL-3.0 texts into licenses/, commit them
+./devtool.sh build      # icons, PyInstaller, smoke test → dist/proc_gen_temple/
+```
+
+`proc_gen_temple.spec` builds one folder holding both programs — `temple-gen` (windowed) and
+`mandapa` (console) over a shared `_internal/` — and on macOS wraps it as `Mandapa
+Generator.app`. It is a folder on purpose: the LGPL wants Qt replaceable, and a onefile build
+unpacks a private copy on every start. The spec excludes every module of the PySide6 Addons
+wheel by name (the Essentials wheel's RECORD is the allow-list, and everything in it is
+LGPL), copies each dependency's licence files and a generated `THIRD_PARTY.md` into
+`licenses/`, and ships `examples/`. `tools/smoke_dist.py` then runs the bundled command and
+editor — an export, a screenshot — and fails the build if an Addons file, a licence text or
+an example is missing. Under `CI` it starts the editor only as far as its argument parser: a
+runner has no desktop, and a windowed program that cannot draw waits rather than fails. The
+icon is drawn from the editor's own glyph by `tools/make_icons.py`.
+
+On Windows the editor is a windowed program: `temple-gen.exe --params x.xml --screenshot
+x.png` works but hands the shell back at once; anything that has to print goes through
+`mandapa.exe`.
+
+`.github/workflows/ci.yml` lints, tests and builds the folder on `windows-latest` — the
+platform that ships — with the same `devtool build`, keeps it as a workflow artifact, and
+turns a `v*` tag into a release carrying the Windows `.zip`. The spec builds on Linux and
+macOS too (`Mandapa Generator.app`, unsigned), by hand.
 
 ## Licences
 
