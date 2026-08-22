@@ -23,7 +23,8 @@ model, **1 / 3 / 7** snap to front, side and plan, **O** goes orthographic, **H*
 print risks (red: an underside steeper than 45°, orange: a flat ceiling that bridges),
 **U** previews the real boolean union, **Space** turns the table, **Ctrl+Z** undoes
 whatever you just did — one step per slider drag — and **Ctrl+E** opens the export
-dialog. Everything saves as a `<temple>` XML document with its look and camera.
+dialog. **F1** lists every verb with its key; **Help → Glossary** explains every word in
+the panel. Everything saves as a `<temple>` XML document with its look and camera.
 
 Headless:
 
@@ -36,7 +37,8 @@ poetry run temple-gen --params out/mine.xml --screenshot out/mine.png
 ```
 
 `mandapa --help` lists the rest: `--list-presets`, `--flip-roof`, `--fit-bed`,
-`--no-union`. It prints a report per part (size, faces, volume, an infill weight
+`--no-union`; `--glossary` prints what the words in the panel mean and `--about` the
+sources and licences. It prints a report per part (size, faces, volume, an infill weight
 estimate, overhang and bridge areas, body count) and exits non-zero if anything is not
 watertight.
 
@@ -152,6 +154,7 @@ are in `tests/test_temple_xml.py`.
 | Ctrl+R | Randomise |
 | Ctrl+P | Screenshot |
 | Ctrl+E | Export… |
+| F1 | Help: verbs and keys, glossary, about, licences |
 
 ## Architecture
 

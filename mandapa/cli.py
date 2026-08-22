@@ -16,6 +16,7 @@ from pathlib import Path
 
 from .builder import build
 from .export import export_parts, export_stl, inspect_parts
+from .help import about_text, glossary_text
 from .io import TempleFormatError, load_any, save_temple
 from .params import MandapaParams
 from .presets import PRESETS
@@ -68,6 +69,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="design to build: a <temple> .xml document or a legacy .json parameters file")
     source.add_argument("--preset", metavar="NAME", help="start from a named preset (see --list-presets)")
     ap.add_argument("--list-presets", action="store_true", help="print the preset names and exit")
+    ap.add_argument("--about", action="store_true", help="print the version, sources and licences and exit")
+    ap.add_argument("--glossary", action="store_true", help="print the glossary of the terms in the panel and exit")
     ap.add_argument("--random", "-r", nargs="?", const=-1, type=int, metavar="SEED",
                     help="randomise the design (optionally from a fixed seed)")
     ap.add_argument("--set", "-s", action="append", default=[], metavar="NAME=VALUE",
@@ -87,6 +90,12 @@ def main(argv: list[str] | None = None) -> int:
     prep.add_argument("--fit-bed", action="store_true", help="scale everything uniformly to fit --bed")
     args = ap.parse_args(argv)
 
+    if args.about:
+        print(about_text())
+        return 0
+    if args.glossary:
+        print(glossary_text())
+        return 0
     if args.list_presets:
         for name in PRESETS:
             print(name)

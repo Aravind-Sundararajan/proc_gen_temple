@@ -309,6 +309,20 @@ QTabBar::tab {{
     border-top-left-radius: 5px;
     border-top-right-radius: 5px;
 }}
+QHeaderView::section {{
+    background: {RAISED};
+    color: {DIM};
+    padding: 4px 8px;
+    border: none;
+    border-bottom: 1px solid {BORDER};
+}}
+QTableView {{
+    background: {FIELD};
+    alternate-background-color: {FIELD};
+    gridline-color: {BORDER};
+    selection-background-color: {SELECT};
+    selection-color: {INK};
+}}
 QTabBar::tab:selected {{
     background: {RAISED};
     color: {INK};

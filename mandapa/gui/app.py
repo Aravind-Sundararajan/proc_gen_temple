@@ -47,6 +47,7 @@ from ..params import MandapaParams
 from ..presets import PRESETS
 from . import icons, theme
 from .export_dialog import ExportDialog
+from .help import HelpDialog
 from .look_panel import LookPanel
 from .paramform import ParamForm
 from .prefs import Preferences
@@ -130,6 +131,7 @@ class MainWindow(QMainWindow):
         self._payload: BuildPayload | None = None
         self._first_frame = self.document.camera is None
         self._export_dialog: ExportDialog | None = None
+        self._help: HelpDialog | None = None
         self._group_actions: dict[str, QAction] = {}
         self._bed_warned = False
         #: Off, the window builds only when asked (tests drive it without worker threads).
@@ -291,6 +293,16 @@ class MainWindow(QMainWindow):
         self._action("bed", "Print &bed", self._set_bed_visible, "B", "bed", "Outline the printer's plate (B)", checkable=True, checked=prefs.flag("bed", True))
         self._action("bed_size", "Print bed si&ze…", self.edit_bed, None, None, "The plate and height the model is checked against")
 
+        self._action("help", "&Verbs and keys", lambda: self.show_help("Verbs"), QKeySequence.StandardKey.HelpContents, None, "Every verb the window has and the key that fires it (F1)")
+        self._action("glossary", "&Glossary", lambda: self.show_help("Glossary"), None, None, "What the words in the panel mean")
+        self._action("about", f"&About {APP_NAME}", lambda: self.show_help("About"), None, None, "Version, sources and licences")
+
+    def show_help(self, tab: str = "Verbs") -> None:
+        """One dialog, four tabs; the menu items only choose the tab."""
+        if self._help is None:
+            self._help = HelpDialog(self.actions, self)
+        self._help.show_tab(tab)
+
     def _build_menus(self) -> None:
         a = self.actions
         file_menu = self.menuBar().addMenu("&File")
@@ -355,6 +367,13 @@ class MainWindow(QMainWindow):
         build_menu.addAction(a["union"])
         build_menu.addSeparator()
         build_menu.addAction(a["export"])
+
+        help_menu = self.menuBar().addMenu("&Help")
+        self.menus["help"] = help_menu
+        help_menu.addAction(a["help"])
+        help_menu.addAction(a["glossary"])
+        help_menu.addSeparator()
+        help_menu.addAction(a["about"])
 
     def _build_toolbar(self) -> None:
         toolbar = QToolBar("Verbs", self)
