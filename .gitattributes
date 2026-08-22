@@ -1,0 +1,11 @@
+# Shell scripts must reach a Linux runner with LF endings whatever the checkout's autocrlf
+# setting says; batch files want CRLF for cmd.exe.  Renders and models are binary.
+* text=auto
+*.sh text eol=lf
+*.spec text eol=lf
+*.bat text eol=crlf
+*.png binary
+*.stl binary
+*.3mf binary
+*.ico binary
+*.icns binary

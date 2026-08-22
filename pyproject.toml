@@ -24,6 +24,10 @@ packages = [{ include = "mandapa" }]
 pytest = ">=8.3"
 ruff = ">=0.8"
 
+
+[tool.poetry.group.build.dependencies]
+pyinstaller = "^6.22.2"
+
 [build-system]
 requires = ["poetry-core>=2.0"]
 build-backend = "poetry.core.masonry.api"
