@@ -57,6 +57,7 @@ GROUPS = [
     "Printing",
     "Procedural",
     "Enclosure (kakshasana, jali)",
+    "Sanctum (garbhagriha)",
 ]
 
 # Named side arrangements.  Compass letters: S is the front (-Y, where the steps are),
@@ -263,6 +264,40 @@ class MandapaParams:
         help="pitha: a miniature moulded altar platform. pedestal: a shaft with a lotus top.",
     )
 
+    # ---- Sanctum ------------------------------------------------------------------------
+    sanctum: str = P(
+        "none", "Garbhagriha", group=GROUPS[9], choices=["none", "centre", "back"],
+        help="The walled cell a vigraham stands in. centre: free-standing in the middle of the "
+        "hall with an ambulatory round it. back: against the back row, the hall in front of it "
+        "as a porch. Its walls run on the pillar lines, so the pillars in them become pilasters.",
+    )
+    sanctum_bays: int = P(
+        1, "Cell bays", lo=1, hi=3, step=1, group=GROUPS[9],
+        help="Bays of the pillar grid the cell spans, centred on the hall; rounded to what the grid can centre.",
+    )
+    sanctum_wall: float = P(
+        1.15, "Wall thickness", lo=0.8, hi=2.5, step=0.05, group=GROUPS[9],
+        help="In pillar widths. Just over one width hides the shafts and lets the capitals and "
+        "corbels show as pilasters.",
+    )
+    dvara_width: float = P(
+        0.5, "Doorway (dvara) width", lo=0.3, hi=0.8, step=0.05, group=GROUPS[9],
+        help="Fraction of the clear cell width, capped so the opening stays twice as high as it is wide.",
+    )
+    sanctum_floor: float = P(
+        0.08, "Raised floor", lo=0.0, hi=0.3, step=0.01, group=GROUPS[9],
+        help="Height of the cell floor and its threshold above the hall floor, in pillar heights.",
+    )
+    sanctum_niches: bool = P(
+        True, "Devakoshtha niches", group=GROUPS[9],
+        help="A framed niche on every blind wall bay, between the pilasters.",
+    )
+    vimana: bool = P(
+        True, "Vimana tower", group=GROUPS[9],
+        help="A tower over the cell: the Roof group's tiers and sikhara, or a second hipped roof "
+        "under a Kerala roof. The stepped roof is already the tower.",
+    )
+
     # ---- helpers ------------------------------------------------------------------------
     @property
     def min_feature(self) -> float:
@@ -381,6 +416,14 @@ class MandapaParams:
             kakshasana=rng.choice(["none", "none", "back", "back+sides", "sides"]),
             jali=rng.choice(["none", "none", "none", "back", "back+sides"]),
             centre_feature=rng.choice(["none", "none", "pitha", "pedestal"]),
+            # drawn last so every seed's hall is the one it was before sanctums existed
+            sanctum=rng.choice(["none", "none", "back", "centre"]),
+            sanctum_bays=rng.choice([1, 1, 2]),
+            sanctum_wall=round(rng.uniform(1.0, 1.6), 2),
+            dvara_width=round(rng.uniform(0.4, 0.6), 2),
+            sanctum_floor=round(rng.uniform(0.05, 0.12), 2),
+            sanctum_niches=rng.random() < 0.7,
+            vimana=rng.random() < 0.8,
         ).clamped()
 
 

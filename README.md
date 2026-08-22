@@ -1,12 +1,13 @@
 # proc_gen_temple
 
 A parametric generator for a small **Dravidian mandapa** — the pillared pavilion of a
-South-Indian temple — that exports a 3D-printable STL or 3MF. Fifty-four knobs describe
-the building in the vocabulary of the shilpa texts (adhishthana, stambha, potika,
-prastara, hara); an editor turns them while a shaded preview rebuilds, and a headless
-command does the same from a file. Every part is a closed solid, every export is one
-watertight body, and every underside that would fail on a printer is either kept inside
-the 45° rule or painted red before you find out the hard way.
+South-Indian temple — with a **garbhagriha** for the vigraham when you want one, that
+exports a 3D-printable STL or 3MF. Sixty-one knobs describe the building in the
+vocabulary of the shilpa texts (adhishthana, stambha, potika, prastara, hara, dvara,
+vimana); an editor turns them while a shaded preview rebuilds, and a headless command
+does the same from a file. Every part is a closed solid, every export is one watertight
+body, and every underside that would fail on a printer is either kept inside the 45°
+rule or painted red before you find out the hard way.
 
 ![The editor on examples/granite_dusk.xml: a stepped roof over a 3×3 hall, the Look dock open](docs/editor.png)
 
@@ -18,7 +19,7 @@ poetry run temple-gen
 ```
 
 Opens the editor on the default sixteen-pillar Chola hall. **File → Open Example** lists
-six authored documents, **Edit → Presets** seven regional types. **F** frames the
+seven authored documents, **Edit → Presets** eight regional types. **F** frames the
 model, **1 / 3 / 7** snap to front, side and plan, **O** goes orthographic, **H** paints
 print risks (red: an underside steeper than 45°, orange: a flat ceiling that bridges),
 **U** previews the real boolean union, **Space** turns the table, **Ctrl+Z** undoes
@@ -33,11 +34,13 @@ poetry run mandapa --out out/hall.stl
 poetry run mandapa --preset "Jali pavilion" --format 3mf --split --out out/jali.3mf
 poetry run mandapa --params examples/granite_dusk.xml --hollow 2.4 --bed 220,220,250 --out out/dusk.stl
 poetry run mandapa --random 42 --set roof_style=kerala --save-params out/mine.xml
+poetry run mandapa --preset "Early Chola shrine" --vigraham 25,25,50 --split --out out/shrine.stl
 poetry run temple-gen --params out/mine.xml --screenshot out/mine.png
 ```
 
 `mandapa --help` lists the rest: `--list-presets`, `--flip-roof`, `--fit-bed`,
-`--no-union`; `--glossary` prints what the words in the panel mean and `--about` the
+`--no-union`; `--vigraham W,D,H` sets the export scale so the garbhagriha holds an image
+that size; `--glossary` prints what the words in the panel mean and `--about` the
 sources and licences. It prints a report per part (size, faces, volume, an infill weight
 estimate, overhang and bridge areas, body count) and exits non-zero if anything is not
 watertight.
@@ -55,6 +58,12 @@ watertight.
   and panjaras with nasi dormers, a stepped tower with a square, octagonal or round
   sikhara, or a Kerala hipped roof; kakshasana seat-backs, jali screens, a pitha or
   pedestal in the centre, steps on any side with hastihasta balustrades.
+* **The sanctum** — a garbhagriha on the pillar lines, centred in the hall or against its
+  back row, so the pillars it swallows emerge as wall pilasters; a dvara twice as high as
+  wide with its surround, an udumbara threshold and a raised floor, a devakoshtha niche in
+  every blind bay, the pitha moved inside; over the cell a vimana of the roof's tiers and
+  sikhara, or a sreekovil's second roof under a Kerala roof. The build log states the
+  clear cavity and the doorway, and `--vigraham` sizes the whole temple to an image.
 * **Print preparation** — the 45° contract (cornice scoop, corbel bevel, buds and petals
   all flatten when it is on), minimum-feature clamps per printer profile, a stdlib 3MF
   writer, splitting into base / colonnade / roof with pegs and 0.2 mm-cleared sockets,
@@ -69,11 +78,13 @@ watertight.
   by tests, a toolbar of verbs with drawn icons, docks for parameters (collapsible,
   filterable, per-section reset) and look, per-group visibility to look under the roof,
   a print-bed outline, an export dialog generated from the print options.
-* **Presets and examples** — seven regional types in `mandapa/presets.py` (Pallava
-  pavilion to Vijayanagara hall to a 60 mm desk model), six documents in `examples/`
-  each with its own light.
+* **Presets and examples** — eight regional types in `mandapa/presets.py` (Pallava
+  pavilion to Vijayanagara hall to an early Chola shrine to a 60 mm desk model), seven
+  documents in `examples/` each with its own light.
 
 ![The default design: a sixteen-pillar Chola hall, 108 × 120 × 68 mm](docs/preview.png)
+
+![The Early Chola shrine preset: a garbhagriha the width of the building behind a one-bay porch, devakoshthas between the wall pilasters, the vimana rising inside the hara](docs/shrine.png)
 
 ## The vocabulary
 
@@ -88,10 +99,17 @@ Bottom to top. Parameter names are the ones in the panel, the files and `--set`.
 | Prastara | uttara beams, valabhi frieze, kapota cornice, slab | `beam_height`, `beam_width`, `frieze_height`, `dentils`, `bhuta_frieze`, `kapota_height`, `kapota_projection`, `kapota_scoop`, `kudus`, `roof_slab` |
 | Hara / tiers / Kerala | the crown | `roof_style` (hara / flat / stepped / kerala), `parapet_height`, `parapet_inset`, `salas_per_side`, `panjaras`, `nasi`, `tiers`, `tier_ratio`, `sikhara_shape`, `finial`, `roof_pitch`, `eave_overhang` |
 | Enclosure | between the outer pillars, and in the middle | `kakshasana`, `jali`, `centre_feature` (none / pitha / pedestal) |
+| Garbhagriha | the sanctum: walls on the pillar lines, the dvara, udumbara and raised floor, devakoshthas, the vimana over it | `sanctum` (none / centre / back), `sanctum_bays`, `sanctum_wall`, `dvara_width`, `sanctum_floor`, `sanctum_niches`, `vimana` |
 | Printing | | `printer_profile`, `printable_overhangs`, `scale` |
 
 Sides are named sets rather than four flags — `front`, `back+sides`, `all` — because
 those are the arrangements halls actually have, and the front stays open for the steps.
+
+The cell spans whole bays so that its walls fall on pillar lines; a count the grid cannot
+centre is moved to the nearest one it can, and the log says so. What the image gets is a
+note — `garbhagriha: 22.0 x 22.0 mm between the walls, 32.2 mm from its floor to the
+beams; dvara 11.0 x 22.0 mm` — and an image wider than the dvara goes in before the roof,
+which `--split` allows.
 
 ## Printing
 
@@ -178,9 +196,11 @@ built, unioned, reported and written on a machine with no display.
 
 In the tests. `tests/test_builder.py` pins the proportions, the 45° contract, which
 ornament drops below the nozzle, and that 150 seeds and every edge of every range union
-to one body; `test_printprep.py` pins the peg clearance and the volume budget of a split;
-`test_theme.py` holds each colour of the chrome to the render value it came from;
-`test_temple_xml.py` holds the format to its guarantees. About 500 tests, a minute.
+to one body; `test_sanctum.py` pins where the cell stands, the 2 : 1 dvara, that the
+doorway is the only way in and the union stays one body round it; `test_printprep.py`
+pins the peg clearance and the volume budget of a split; `test_theme.py` holds each
+colour of the chrome to the render value it came from; `test_temple_xml.py` holds the
+format to its guarantees. About 560 tests, a minute.
 
 ## Development
 

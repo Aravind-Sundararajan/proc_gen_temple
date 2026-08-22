@@ -65,7 +65,8 @@ def test_the_examples_are_distinct_designs():
     designs = [f.params for f in files]  # not hashable: compare pairwise by value
     assert all(a != b for i, a in enumerate(designs) for b in designs[i + 1 :])
     assert len({f.look for f in files}) == len(files)
-    assert len({f.params.roof_style for f in files}) == 3, "hara, stepped and flat all appear"
+    assert len({f.params.roof_style for f in files}) == 4, "hara, stepped, flat and kerala all appear"
+    assert {f.params.sanctum != "none" for f in files} == {True, False}, "an open hall and a shrine"
     assert len({f.params.plinth_style for f in files}) >= 3
     assert {f.params.steps for f in files} == {True, False}
 
