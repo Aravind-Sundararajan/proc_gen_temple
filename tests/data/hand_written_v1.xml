@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Written by hand, not by save_temple, so a reader regression is caught by a document the
+  writer would never produce: sections out of the writer's order, parameters out of
+  declaration order, a comment, free text, an unknown parameter, an unknown section, an
+  unknown attribute on the root and on the camera, a partial look, integer-looking and
+  exponent-looking floats, and the bool spellings the reader accepts.
+-->
+<temple version="1" name="Hand-written fixture" author="somebody">
+  <camera cz="30" cy="0" cx="0" distance="320" elevation="22" azimuth="-55" lens="50mm"/>
+  <look light_elevation="35.5" surface_colour="0.5   0.4 0.30000000000000004" light_azimuth="1e2"/>
+  <params>
+    <param name="steps" value="False"/>
+    <param name="pillars_x" value="3"/>
+    <!-- full double precision must survive -->
+    <param name="footprint_x" value="123.45678901234567"/>
+    <param name="roof_style" value="stepped"/>
+    <param name="tiers" value="5"/>
+    <param name="kudus" value="TRUE"/>
+    <param name="scale" value="1e-1"/>
+    <param name="pillar_height" value="40"/>
+    <param name="not_yet_a_param" value="whatever"/>
+    <note>free text the reader ignores</note>
+  </params>
+  <annotations>
+    <annotation at="0 0 0">also ignored: a section from a newer build</annotation>
+  </annotations>
+</temple>

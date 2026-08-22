@@ -1,0 +1,46 @@
+<?xml version='1.0' encoding='utf-8'?>
+<temple version="1" name="Granite pavilion at dusk">
+  <!-- Nine pillars with mixed shafts on a round-torus (pratibandha) plinth, a four-tier stepped roof; a low raking key from behind the left shoulder and a cool indigo fill. -->
+  <params>
+    <param name="footprint_x" value="120.0" />
+    <param name="footprint_y" value="120.0" />
+    <param name="pillars_x" value="3" />
+    <param name="pillars_y" value="3" />
+    <param name="pillar_inset" value="1.0" />
+    <param name="plinth_height" value="14.0" />
+    <param name="plinth_style" value="pratibandha" />
+    <param name="plinth_projection" value="0.12" />
+    <param name="pillar_width" value="7.0" />
+    <param name="pillar_height" value="38.0" />
+    <param name="shaft_style" value="varied" />
+    <param name="capital_ratio" value="0.25" />
+    <param name="corbel_reach" value="1.2" />
+    <param name="corbel_height" value="0.7" />
+    <param name="corbel_style" value="bevel" />
+    <param name="beam_height" value="3.5" />
+    <param name="beam_width" value="0.8" />
+    <param name="frieze_height" value="2.5" />
+    <param name="kapota_height" value="4.0" />
+    <param name="kapota_projection" value="4.0" />
+    <param name="kapota_scoop" value="0.5" />
+    <param name="kudus" value="true" />
+    <param name="roof_slab" value="3.0" />
+    <param name="roof_style" value="stepped" />
+    <param name="parapet_height" value="8.5" />
+    <param name="parapet_inset" value="1.5" />
+    <param name="salas_per_side" value="1" />
+    <param name="tiers" value="4" />
+    <param name="tier_ratio" value="0.74" />
+    <param name="finial" value="true" />
+    <param name="steps" value="true" />
+    <param name="step_count" value="5" />
+    <param name="steps_width" value="0.35" />
+    <param name="balustrades" value="true" />
+    <param name="printer_profile" value="fdm_0.4" />
+    <param name="printable_overhangs" value="true" />
+    <param name="scale" value="1.0" />
+    <param name="seed" value="3" />
+  </params>
+  <look light_azimuth="200.0" light_elevation="14.0" light_strength="1.2" ambient_strength="0.26" rim_strength="0.45" surface_colour="0.55 0.57 0.62" overhang_colour="0.92 0.25 0.2" bridge_colour="0.95 0.6 0.15" background_colour="0.07 0.08 0.13" background_top="0.3 0.2 0.22" />
+  <camera azimuth="155.0" elevation="14.0" distance="230.0" cx="0.0" cy="0.0" cz="35.0" />
+</temple>

@@ -1,0 +1,46 @@
+<?xml version='1.0' encoding='utf-8'?>
+<temple version="1" name="Moonlit, unsupported cornice">
+  <!-- The authentic scooped kapota and rolled corbels with the 45-degree rule switched off (resin or supports), round shafts on an 80 x 110 mm plan, under a cold key from the north-east and almost no fill, so the red overhang tint reads at a glance. -->
+  <params>
+    <param name="footprint_x" value="80.0" />
+    <param name="footprint_y" value="110.0" />
+    <param name="pillars_x" value="3" />
+    <param name="pillars_y" value="4" />
+    <param name="pillar_inset" value="1.0" />
+    <param name="plinth_height" value="12.0" />
+    <param name="plinth_style" value="padabandha" />
+    <param name="plinth_projection" value="0.12" />
+    <param name="pillar_width" value="6.0" />
+    <param name="pillar_height" value="33.0" />
+    <param name="shaft_style" value="round" />
+    <param name="capital_ratio" value="0.25" />
+    <param name="corbel_reach" value="1.2" />
+    <param name="corbel_height" value="0.7" />
+    <param name="corbel_style" value="taranga" />
+    <param name="beam_height" value="3.5" />
+    <param name="beam_width" value="0.8" />
+    <param name="frieze_height" value="2.5" />
+    <param name="kapota_height" value="4.0" />
+    <param name="kapota_projection" value="4.0" />
+    <param name="kapota_scoop" value="1.0" />
+    <param name="kudus" value="true" />
+    <param name="roof_slab" value="3.0" />
+    <param name="roof_style" value="hara" />
+    <param name="parapet_height" value="8.0" />
+    <param name="parapet_inset" value="1.5" />
+    <param name="salas_per_side" value="1" />
+    <param name="tiers" value="3" />
+    <param name="tier_ratio" value="0.78" />
+    <param name="finial" value="true" />
+    <param name="steps" value="true" />
+    <param name="step_count" value="3" />
+    <param name="steps_width" value="0.35" />
+    <param name="balustrades" value="true" />
+    <param name="printer_profile" value="fdm_0.25" />
+    <param name="printable_overhangs" value="false" />
+    <param name="scale" value="1.0" />
+    <param name="seed" value="0" />
+  </params>
+  <look light_azimuth="150.0" light_elevation="40.0" light_strength="0.8" ambient_strength="0.18" rim_strength="0.6" surface_colour="0.62 0.66 0.74" overhang_colour="0.92 0.25 0.2" bridge_colour="0.95 0.6 0.15" background_colour="0.03 0.04 0.08" background_top="0.1 0.12 0.2" />
+  <camera azimuth="120.0" elevation="20.0" distance="200.0" cx="0.0" cy="0.0" cz="30.0" />
+</temple>

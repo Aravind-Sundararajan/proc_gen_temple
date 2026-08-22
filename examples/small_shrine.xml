@@ -1,0 +1,46 @@
+<?xml version='1.0' encoding='utf-8'?>
+<temple version="1" name="Shrine pavilion, 60 mm">
+  <!-- The smallest sensible print: four octagonal pillars, a plain plinth, a flat roof, no steps and no kudus, sized for a resin printer and lit by a low eastern morning sun. -->
+  <params>
+    <param name="footprint_x" value="60.0" />
+    <param name="footprint_y" value="60.0" />
+    <param name="pillars_x" value="2" />
+    <param name="pillars_y" value="2" />
+    <param name="pillar_inset" value="1.0" />
+    <param name="plinth_height" value="8.0" />
+    <param name="plinth_style" value="plain" />
+    <param name="plinth_projection" value="0.12" />
+    <param name="pillar_width" value="5.0" />
+    <param name="pillar_height" value="24.0" />
+    <param name="shaft_style" value="octagonal" />
+    <param name="capital_ratio" value="0.25" />
+    <param name="corbel_reach" value="1.2" />
+    <param name="corbel_height" value="0.7" />
+    <param name="corbel_style" value="taranga" />
+    <param name="beam_height" value="3.5" />
+    <param name="beam_width" value="0.8" />
+    <param name="frieze_height" value="2.5" />
+    <param name="kapota_height" value="3.0" />
+    <param name="kapota_projection" value="3.0" />
+    <param name="kapota_scoop" value="0.5" />
+    <param name="kudus" value="false" />
+    <param name="roof_slab" value="3.0" />
+    <param name="roof_style" value="flat" />
+    <param name="parapet_height" value="8.0" />
+    <param name="parapet_inset" value="1.5" />
+    <param name="salas_per_side" value="1" />
+    <param name="tiers" value="3" />
+    <param name="tier_ratio" value="0.78" />
+    <param name="finial" value="true" />
+    <param name="steps" value="false" />
+    <param name="step_count" value="4" />
+    <param name="steps_width" value="0.35" />
+    <param name="balustrades" value="true" />
+    <param name="printer_profile" value="resin" />
+    <param name="printable_overhangs" value="true" />
+    <param name="scale" value="1.0" />
+    <param name="seed" value="0" />
+  </params>
+  <look light_azimuth="10.0" light_elevation="28.0" light_strength="1.0" ambient_strength="0.38" rim_strength="0.3" surface_colour="0.9 0.86 0.78" overhang_colour="0.92 0.25 0.2" bridge_colour="0.95 0.6 0.15" background_colour="0.5 0.57 0.66" background_top="0.74 0.79 0.86" />
+  <camera azimuth="-30.0" elevation="22.0" distance="118.0" cx="0.0" cy="0.0" cz="20.0" />
+</temple>

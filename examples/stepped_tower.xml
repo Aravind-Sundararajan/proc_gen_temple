@@ -1,0 +1,46 @@
+<?xml version='1.0' encoding='utf-8'?>
+<temple version="1" name="Stepped tower, overcast">
+  <!-- A five-tier pyramid over sixteen-sided shafts with bevelled corbels and no steps; a high, weak key and a strong ambient make the overcast day of a whitewashed shrine. -->
+  <params>
+    <param name="footprint_x" value="100.0" />
+    <param name="footprint_y" value="100.0" />
+    <param name="pillars_x" value="4" />
+    <param name="pillars_y" value="4" />
+    <param name="pillar_inset" value="1.0" />
+    <param name="plinth_height" value="12.0" />
+    <param name="plinth_style" value="padabandha" />
+    <param name="plinth_projection" value="0.12" />
+    <param name="pillar_width" value="6.0" />
+    <param name="pillar_height" value="38.0" />
+    <param name="shaft_style" value="sixteen" />
+    <param name="capital_ratio" value="0.25" />
+    <param name="corbel_reach" value="1.2" />
+    <param name="corbel_height" value="0.7" />
+    <param name="corbel_style" value="bevel" />
+    <param name="beam_height" value="3.5" />
+    <param name="beam_width" value="0.8" />
+    <param name="frieze_height" value="2.5" />
+    <param name="kapota_height" value="4.0" />
+    <param name="kapota_projection" value="4.0" />
+    <param name="kapota_scoop" value="0.5" />
+    <param name="kudus" value="true" />
+    <param name="roof_slab" value="3.0" />
+    <param name="roof_style" value="stepped" />
+    <param name="parapet_height" value="7.0" />
+    <param name="parapet_inset" value="1.5" />
+    <param name="salas_per_side" value="1" />
+    <param name="tiers" value="5" />
+    <param name="tier_ratio" value="0.8" />
+    <param name="finial" value="true" />
+    <param name="steps" value="false" />
+    <param name="step_count" value="4" />
+    <param name="steps_width" value="0.35" />
+    <param name="balustrades" value="true" />
+    <param name="printer_profile" value="fdm_0.4" />
+    <param name="printable_overhangs" value="true" />
+    <param name="scale" value="1.0" />
+    <param name="seed" value="0" />
+  </params>
+  <look light_azimuth="60.0" light_elevation="75.0" light_strength="0.6" ambient_strength="0.6" rim_strength="0.1" surface_colour="0.92 0.9 0.86" overhang_colour="0.92 0.25 0.2" bridge_colour="0.95 0.6 0.15" background_colour="0.4 0.42 0.45" background_top="0.62 0.64 0.68" />
+  <camera azimuth="-50.0" elevation="28.0" distance="235.0" cx="0.0" cy="0.0" cz="40.0" />
+</temple>
