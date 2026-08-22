@@ -248,10 +248,10 @@ On Windows the editor is a windowed program: `temple-gen.exe --params x.xml --sc
 x.png` works but hands the shell back at once; anything that has to print goes through
 `mandapa.exe`.
 
-`.github/workflows/ci.yml` lints and tests on Linux, Windows and macOS, builds the folder on
-each with the same `devtool build` (under Xvfb on Linux, so the smoke test has a GL context),
-keeps the three as workflow artifacts, and turns a `v*` tag into a release carrying a
-`.tar.gz` (Linux), a zipped app (macOS) and a `.zip` (Windows).
+`.github/workflows/ci.yml` lints, tests and builds the folder on `windows-latest` — the
+platform that ships — with the same `devtool build`, keeps it as a workflow artifact, and
+turns a `v*` tag into a release carrying the Windows `.zip`. The spec builds on Linux and
+macOS too (`Mandapa Generator.app`, unsigned), by hand.
 
 ## Licences
 
