@@ -242,7 +242,9 @@ wheel by name (the Essentials wheel's RECORD is the allow-list, and everything i
 LGPL), copies each dependency's licence files and a generated `THIRD_PARTY.md` into
 `licenses/`, and ships `examples/`. `tools/smoke_dist.py` then runs the bundled command and
 editor — an export, a screenshot — and fails the build if an Addons file, a licence text or
-an example is missing. The icon is drawn from the editor's own glyph by `tools/make_icons.py`.
+an example is missing. Under `CI` it starts the editor only as far as its argument parser: a
+runner has no desktop, and a windowed program that cannot draw waits rather than fails. The
+icon is drawn from the editor's own glyph by `tools/make_icons.py`.
 
 On Windows the editor is a windowed program: `temple-gen.exe --params x.xml --screenshot
 x.png` works but hands the shell back at once; anything that has to print goes through

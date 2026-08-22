@@ -6,18 +6,21 @@ screenshot — and then holds the folder to the README's licence note: only LGPL
 PySide6 Essentials wheel's own list), the third-party licence files, the LGPL and GPL texts.
 Exit status is the verdict; the reasons are printed.  It runs under the development venv (it
 reads the wheels' RECORDs and decodes the screenshot with Qt), never inside the bundle.
+
+On a CI runner (``CI`` set) the editor is started only as far as its argument parser.  A
+runner has no desktop for a window and no GL for the viewer, and a windowed program that
+cannot render there does not fail — it waits, on a frame that never comes or a dialog nobody
+can dismiss, with its stderr gone.  ``--help`` exits after every import and before any window,
+which is the part of the editor a bundle can break; the screenshot is a desk-side check.
 """
 
 from __future__ import annotations
 
-import contextlib
 import importlib.metadata
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
-from collections.abc import Iterator
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,35 +41,14 @@ def ok(text: str) -> None:
     print(f"ok    {text}")
 
 
-def run(args: list[str], env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
-    """Run a bundled executable; waits even for a windowed program, which a shell would not."""
-    merged = {**os.environ, **(env or {})}
-    return subprocess.run(args, capture_output=True, text=True, timeout=TIMEOUT, env=merged, check=False)
+def run(args: list[str], timeout: float = TIMEOUT) -> subprocess.CompletedProcess[str]:
+    """Run a bundled executable; waits even for a windowed program, which a shell would not.
 
-
-@contextlib.contextmanager
-def one_gl_for_qt_and_pyopengl() -> Iterator[None]:
-    """On a Windows runner without a GPU, put Mesa beside the editor as ``opengl32.dll``.
-
-    Qt's answer to a missing driver is its software rasteriser, ``opengl32sw.dll`` — but
-    PyOpenGL keeps calling the system ``opengl32.dll``, so the two never share a context and
-    the first call fails with GL_INVALID_OPERATION.  (``QT_OPENGL=software`` reproduces that
-    on a desk with a driver; do not set it.)  A Mesa copy named ``opengl32.dll`` in the
-    application directory is found first by both, so they draw through the same library.
-    Only under ``CI``: a desk uses its driver, and the copy is removed afterwards so the
-    folder tested is the folder shipped.
+    Never set ``QT_OPENGL=software`` for the editor here: Qt would draw through
+    ``opengl32sw.dll`` while PyOpenGL keeps calling the system ``opengl32.dll``, two GLs and no
+    shared context, and the first call fails with GL_INVALID_OPERATION.
     """
-    mesa = INTERNAL / "PySide6" / "opengl32sw.dll"
-    stand_in = DIST / "opengl32.dll"
-    if sys.platform != "win32" or not os.environ.get("CI") or not mesa.is_file():
-        yield
-        return
-    shutil.copy2(mesa, stand_in)
-    print("note  no GPU on a CI runner: Mesa stands in as opengl32.dll for the screenshot")
-    try:
-        yield
-    finally:
-        stand_in.unlink(missing_ok=True)
+    return subprocess.run(args, capture_output=True, text=True, timeout=timeout, check=False)
 
 
 def wheel_files(dist: str) -> set[str]:
@@ -109,10 +91,20 @@ def check_gui(tmp: Path) -> None:
     if not exe.is_file():
         fail(f"{exe} is missing")
         return
+    if os.environ.get("CI"):
+        result = run([str(exe), "--help"], timeout=120)
+        if result.returncode != 0:
+            fail(f"temple-gen --help exited {result.returncode}: the editor does not start\n{result.stderr}")
+        else:
+            ok("temple-gen starts as far as its argument parser (a CI runner has no desktop: no screenshot)")
+        return
     png = tmp / "smoke.png"
     params = ROOT / "examples" / "small_shrine.xml"
-    with one_gl_for_qt_and_pyopengl():
-        result = run([str(exe), "--params", str(params), "--screenshot", str(png)])
+    try:
+        result = run([str(exe), "--params", str(params), "--screenshot", str(png)], timeout=180)
+    except subprocess.TimeoutExpired:
+        fail("temple-gen did not exit within 180 s: a dialog is probably waiting, or no frame was ever drawn")
+        return
     if result.returncode != 0 or not png.is_file():
         fail(f"temple-gen screenshot failed ({result.returncode}):\n{result.stdout}\n{result.stderr}")
         return

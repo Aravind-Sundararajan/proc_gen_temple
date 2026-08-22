@@ -8,8 +8,9 @@
 #
 # The build step calls the same devtool verb a developer runs (`devtool build` draws the icons,
 # runs PyInstaller and smoke-tests the folder), so the pipeline and the desk agree on what a
-# build is.  The smoke test renders a screenshot through the bundled editor; on a runner without
-# a GPU it lends the editor Mesa as opengl32.dll for that one run (see tools/smoke_dist.py).
+# build is.  Under CI the smoke test starts the bundled editor only as far as its argument
+# parser — a runner has no desktop to draw on, and a windowed program that cannot render waits
+# rather than fails — and keeps the rendered screenshot for a desk (see tools/smoke_dist.py).
 name: CI
 
 on:
