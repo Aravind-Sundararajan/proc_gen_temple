@@ -88,6 +88,20 @@ def _temple(p: QPainter) -> None:
     _poly(p, (12, 5.5), (12, 3))
 
 
+def _gopuram(p: QPainter) -> None:
+    """The sister app: the gateway tower — tapering talas over the passage, the sala crest on top."""
+    _poly(p, (3, 20), (21, 20))
+    _poly(p, (6, 20), (8.5, 6.5))
+    _poly(p, (18, 20), (15.5, 6.5))
+    _poly(p, (7, 16), (17, 16))
+    _poly(p, (7.7, 12.5), (16.3, 12.5))
+    _poly(p, (8.3, 9.5), (15.7, 9.5))
+    _poly(p, (7.5, 6.5), (16.5, 6.5))
+    for x in (9.5, 12.0, 14.5):
+        _poly(p, (x, 6.5), (x, 4.5))
+    p.drawRect(QRectF(10.5, 16.5, 3, 3.5))
+
+
 def _build(p: QPainter) -> None:
     """A mallet: the head is a rotated slab, the handle runs to the corner."""
     _poly(p, (5, 19), (12, 12))
@@ -256,6 +270,7 @@ def _clear(p: QPainter) -> None:
 #: Verb to glyph.  The toolbar, the menus and the docks all draw from this one table.
 GLYPHS: dict[str, Glyph] = {
     "temple": _temple,
+    "gopuram": _gopuram,
     "build": _build,
     "fit": _fit,
     "front": _front,

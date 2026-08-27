@@ -95,18 +95,22 @@ def analyse(result: Build, union: bool) -> BuildPayload:
 
 
 class BuildWorker(QThread):
-    """Builds (and optionally unions) off the GUI thread."""
+    """Builds (and optionally unions) off the GUI thread.
+
+    ``build`` is the family's builder — :func:`mandapa.builder.build` unless the window
+    hands over the gopuram's — so the worker never has to know whose parameters it holds.
+    """
 
     done = Signal(object)
     failed = Signal(str)
 
-    def __init__(self, params: MandapaParams, union: bool, parent=None):
+    def __init__(self, params: MandapaParams, union: bool, parent=None, build=build):
         super().__init__(parent)
-        self.params, self.union = params, union
+        self.params, self.union, self.build = params, union, build
 
     def run(self) -> None:
         try:
-            self.done.emit(analyse(build(self.params), self.union))
+            self.done.emit(analyse(self.build(self.params), self.union))
         except Exception:  # noqa: BLE001 - any failure must reach the GUI thread, not kill the worker
             self.failed.emit(traceback.format_exc())
 
@@ -156,18 +160,27 @@ def write_parts(parts: list[PartMesh], path: Path, fmt: str) -> list[Path]:
 
 
 class ExportWorker(QThread):
-    """Prepares the print parts and writes them, reporting per part."""
+    """Prepares the print parts and writes them, reporting per part.
+
+    ``prepare`` is the family's print-prep entry point, defaulting to the mandapa's
+    :func:`~mandapa.printprep.prepare_parts`; the options object is whatever that
+    function takes, which is also what the dialog was generated from.
+    """
 
     done = Signal(object)
     failed = Signal(str)
 
-    def __init__(self, result: Build, options: PrintOptions, path: Path, fmt: str, parent=None):
+    def __init__(
+        self, result: Build, options: PrintOptions, path: Path, fmt: str, parent=None,
+        prepare=prepare_parts,
+    ):
         super().__init__(parent)
         self.result, self.options, self.path, self.fmt = result, options, Path(path), fmt
+        self.prepare = prepare
 
     def run(self) -> None:
         try:
-            parts = prepare_parts(self.result, self.options)
+            parts = self.prepare(self.result, self.options)
             paths = write_parts(parts, self.path, self.fmt)
             inspect_parts = getattr(export_module, "inspect_parts", None)
             if inspect_parts is not None:

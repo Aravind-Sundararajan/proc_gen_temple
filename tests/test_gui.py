@@ -275,7 +275,8 @@ def test_the_examples_menu_lists_the_directory(qapp, prefs, tmp_path, monkeypatc
     examples.mkdir()
     for name in ("small_shrine.xml", "long_hall.xml"):
         Document(MandapaParams()).save(examples / name)
-    monkeypatch.setattr(app_module, "EXAMPLES", examples)
+    # The directory is a class knob now (the gopuram's window points it elsewhere).
+    monkeypatch.setattr(MainWindow, "EXAMPLES", examples)
     window = MainWindow(prefs=prefs, autobuild=False)
     try:
         assert window.examples_menu is not None

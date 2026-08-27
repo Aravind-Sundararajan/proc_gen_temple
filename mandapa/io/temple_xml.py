@@ -103,6 +103,18 @@ refused rather than filled in.  Absent means the viewer keeps whatever pose it h
 An authored title, shown in menus.  Not the file name: that is derived from the path,
 and derived data is not persisted, because a copy of it can only ever be stale.
 
+One engine, two formats
+-----------------------
+The reader and writer take the root tag, the parameter dataclass and the format version
+as arguments, defaulting to this module's own ``<temple>``/:class:`MandapaParams`/1, and
+:mod:`gopuram.io` calls the same functions with ``<gopuram>`` and its own class.  The
+two formats share every rule above but version independently — a semantic change to a
+gopuram attribute must not force every mandapa file to a new number — which is why the
+version is a parameter rather than the one constant.  The root tag is what keeps the
+families apart: a gopuram's parameter names would all be "unknown" to a mandapa reader,
+so without the distinct root a gopuram file would open as the default mandapa — the
+silent-misreading failure this format exists to refuse.
+
 Deliberately not persisted
 --------------------------
 ``min_feature`` (a function of ``printer_profile``), the layout, the mesh, the undo
@@ -148,6 +160,11 @@ class TempleFile:
     ``look`` is the shipped defaults for a document without a ``<look>``; ``camera`` is
     ``None`` for one without a ``<camera>``; ``name`` is ``""`` for one with no authored
     title; ``ignored`` lists the parameter names the reader did not recognise.
+
+    ``params`` is an instance of the class the loader was given — :class:`MandapaParams`
+    for a ``<temple>``, ``GopuramParams`` for a ``<gopuram>`` — and the annotation states
+    the default family rather than a union, because naming the sister class here would
+    point the dependency arrow backwards.
     """
 
     params: MandapaParams
@@ -160,10 +177,10 @@ class TempleFile:
 # ---- the parameter vocabulary -----------------------------------------------------------
 
 
-def _param_specs() -> dict[str, tuple[type, list[str] | None]]:
+def _param_specs(params_cls: type = MandapaParams) -> dict[str, tuple[type, list[str] | None]]:
     """Field name -> (declared type, choices), resolved from the string annotations."""
-    hints = get_type_hints(MandapaParams)
-    return {f.name: (hints[f.name], f.metadata.get("choices")) for f in fields(MandapaParams)}
+    hints = get_type_hints(params_cls)
+    return {f.name: (hints[f.name], f.metadata.get("choices")) for f in fields(params_cls)}
 
 
 def _write_value(name: str, kind: type, choices: list[str] | None, value: Any) -> str:
@@ -230,16 +247,20 @@ def save_temple(
     look: Look | None = None,
     camera: dict[str, float] | None = None,
     name: str = "",
+    *,
+    root_tag: str = "temple",
+    version: int = FORMAT_VERSION,
 ) -> None:
-    """Write a version-1 document.  Every parameter; the look in full if given; the camera
-    in full if given; the title if non-empty.  Raises ``ValueError`` for a value the
-    reader would refuse, before anything is written."""
-    root = ET.Element("temple", {"version": str(FORMAT_VERSION)})
+    """Write a version-``version`` document.  Every parameter; the look in full if given;
+    the camera in full if given; the title if non-empty.  Raises ``ValueError`` for a
+    value the reader would refuse, before anything is written.  The fields written are
+    ``type(params)``'s, so the one writer serves the ``<gopuram>`` format too."""
+    root = ET.Element(root_tag, {"version": str(version)})
     if name:
         root.set("name", name)
 
     section = ET.SubElement(root, "params")
-    for pname, (kind, choices) in _param_specs().items():
+    for pname, (kind, choices) in _param_specs(type(params)).items():
         value = _write_value(pname, kind, choices, getattr(params, pname))
         ET.SubElement(section, "param", {"name": pname, "value": value})
 
@@ -283,31 +304,38 @@ def _single(path: Path, root: ET.Element, tag: str, required: bool = False) -> E
     return found[0]
 
 
-def load_temple(path: str | Path) -> TempleFile:
-    """Read a ``<temple>`` document.  Raises :class:`TempleFormatError` naming the path
-    for anything this build cannot read; the module docstring lists what that is."""
+def load_temple(
+    path: str | Path,
+    *,
+    root_tag: str = "temple",
+    params_cls: type = MandapaParams,
+    version: int = FORMAT_VERSION,
+) -> TempleFile:
+    """Read a ``<temple>`` document — or, given another root tag and parameter class, its
+    sister format.  Raises :class:`TempleFormatError` naming the path for anything this
+    build cannot read; the module docstring lists what that is."""
     path = Path(path)
     try:
         root = ET.parse(path).getroot()
     except ET.ParseError as exc:
         raise TempleFormatError(f"{path}: not well-formed XML ({exc})") from exc
-    if root.tag != "temple":
-        raise TempleFormatError(f"{path}: root element is <{root.tag}>, expected <temple>")
-    version = root.get("version")
-    if version is None:
+    if root.tag != root_tag:
+        raise TempleFormatError(f"{path}: root element is <{root.tag}>, expected <{root_tag}>")
+    stated = root.get("version")
+    if stated is None:
         raise TempleFormatError(
-            f"{path}: <temple> has no version attribute (this build writes version {FORMAT_VERSION})"
+            f"{path}: <{root_tag}> has no version attribute (this build writes version {version})"
         )
-    if version.strip() != str(FORMAT_VERSION):
+    if stated.strip() != str(version):
         raise TempleFormatError(
-            f"{path}: temple version {version!r} is not one this build reads (it reads {FORMAT_VERSION})"
+            f"{path}: {root_tag} version {stated!r} is not one this build reads (it reads {version})"
         )
 
     params_el = _single(path, root, "params", required=True)
     look_el = _single(path, root, "look")
     camera_el = _single(path, root, "camera")
 
-    specs = _param_specs()
+    specs = _param_specs(params_cls)
     data: dict[str, Any] = {}
     ignored: list[str] = []
     for el in params_el.findall("param"):
@@ -322,7 +350,7 @@ def load_temple(path: str | Path) -> TempleFile:
             raise TempleFormatError(f"{path}: parameter {pname!r} is stated twice")
         kind, choices = specs[pname]
         data[pname] = _read_value(path, pname, kind, choices, text)
-    params = MandapaParams(**data)
+    params = params_cls(**data)
 
     look = Look()
     if look_el is not None:

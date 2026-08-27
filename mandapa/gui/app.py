@@ -42,9 +42,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .. import help as help_module
+from ..builder import build
 from ..document import Document, ReplaceDesign
-from ..params import MandapaParams
 from ..presets import PRESETS
+from ..printprep import PrintOptions, prepare_parts
 from . import icons, theme
 from .export_dialog import ExportDialog
 from .help import HelpDialog
@@ -54,7 +56,7 @@ from .prefs import Preferences
 from .viewer import Viewer
 from .workers import BuildPayload, BuildWorker
 
-__all__ = ["APP_NAME", "EXAMPLES", "MainWindow", "Readout", "main"]
+__all__ = ["APP_NAME", "EXAMPLES", "MainWindow", "Readout", "main", "run_editor"]
 
 APP_NAME = "Mandapa Generator"
 EXAMPLES = Path(__file__).resolve().parents[2] / "examples"
@@ -116,6 +118,32 @@ class BedDialog(QDialog):
 
 
 class MainWindow(QMainWindow):
+    """The mandapa's editor window — and, through the class attributes below, the shell
+    of the gopuram's.  ``gopuram.gui.app`` subclasses and overrides only the family:
+    which document (and so which parameters and file format), which builder, which
+    presets and examples, which print options and prepare function, which help module,
+    which glyph.  Everything the window *does* — docks, verbs, undo wiring, workers,
+    files — is family-blind and inherited unchanged.
+    """
+
+    APP_NAME = APP_NAME
+    #: The document class ``New`` starts from; its PARAMS/LOAD/SAVE are the file format.
+    DOCUMENT = Document
+    #: The family's builder, handed to :class:`BuildWorker`.
+    BUILD = staticmethod(build)
+    #: Preset name -> parameter record, for the Edit menu.
+    PRESETS = PRESETS
+    #: Directory the File → Open Example menu lists.
+    EXAMPLES = EXAMPLES
+    #: The print options the export dialog is generated from, and what understands them.
+    PRINT_OPTIONS = PrintOptions
+    PREPARE = staticmethod(prepare_parts)
+    #: The Qt-free record the Help dialog and the window icon draw from.
+    ABOUT = help_module
+    GLYPH = "temple"
+    FILE_FILTER = FILE_FILTER
+    SAVE_FILTER = "Temple documents (*.xml)"
+
     def __init__(
         self,
         document: Document | None = None,
@@ -124,7 +152,7 @@ class MainWindow(QMainWindow):
     ):
         super().__init__()
         self.prefs = prefs if prefs is not None else Preferences()
-        self.document = document if document is not None else Document()
+        self.document = document if document is not None else self.DOCUMENT()
         self._unsubscribe: Callable[[], None] | None = None
         self._worker: BuildWorker | None = None
         self._pending = False
@@ -295,12 +323,12 @@ class MainWindow(QMainWindow):
 
         self._action("help", "&Verbs and keys", lambda: self.show_help("Verbs"), QKeySequence.StandardKey.HelpContents, None, "Every verb the window has and the key that fires it (F1)")
         self._action("glossary", "&Glossary", lambda: self.show_help("Glossary"), None, None, "What the words in the panel mean")
-        self._action("about", f"&About {APP_NAME}", lambda: self.show_help("About"), None, None, "Version, sources and licences")
+        self._action("about", f"&About {self.APP_NAME}", lambda: self.show_help("About"), None, None, "Version, sources and licences")
 
     def show_help(self, tab: str = "Verbs") -> None:
         """One dialog, four tabs; the menu items only choose the tab."""
         if self._help is None:
-            self._help = HelpDialog(self.actions, self)
+            self._help = HelpDialog(self.actions, self, about=self.ABOUT)
         self._help.show_tab(tab)
 
     def _build_menus(self) -> None:
@@ -312,7 +340,7 @@ class MainWindow(QMainWindow):
         self.recent_menu = file_menu.addMenu("Open &Recent")
         self.recent_menu.aboutToShow.connect(self._fill_recent_menu)
         self.examples_menu: QMenu | None = None
-        if EXAMPLES.is_dir():
+        if self.EXAMPLES.is_dir():
             self.examples_menu = file_menu.addMenu("Open E&xample")
             self.examples_menu.aboutToShow.connect(self._fill_examples_menu)
         file_menu.addSeparator()
@@ -332,7 +360,7 @@ class MainWindow(QMainWindow):
         edit_menu.addAction(a["randomise"])
         edit_menu.addAction(a["reset"])
         presets = edit_menu.addMenu("&Presets")
-        for name, params in PRESETS.items():
+        for name, params in self.PRESETS.items():
             action = QAction(name, self)
             action.triggered.connect(lambda checked=False, n=name, p=params: self.apply_preset(n, p))
             presets.addAction(action)
@@ -460,7 +488,7 @@ class MainWindow(QMainWindow):
 
     def _refresh_title(self) -> None:
         mark = "*" if self.document.dirty else ""
-        self.setWindowTitle(f"{self.document.name}{mark} — {APP_NAME}")
+        self.setWindowTitle(f"{self.document.name}{mark} — {self.APP_NAME}")
 
     def _refresh_history(self) -> None:
         document = self.document
@@ -484,7 +512,7 @@ class MainWindow(QMainWindow):
             return
         self._pending = False
         self._set_busy(True, "Building…" if not self.actions["union"].isChecked() else "Building and unioning…")
-        worker = BuildWorker(self.document.params, self.actions["union"].isChecked())
+        worker = BuildWorker(self.document.params, self.actions["union"].isChecked(), build=self.BUILD)
         worker.done.connect(self._build_done)
         worker.failed.connect(self._build_failed)
         # The pending rebuild waits for *finished*, not for the result: the result arrives
@@ -630,10 +658,10 @@ class MainWindow(QMainWindow):
 
     def reset_defaults(self) -> None:
         self.document.seal()
-        self.document.submit(ReplaceDesign(MandapaParams(), text="Reset to defaults"))
+        self.document.submit(ReplaceDesign(type(self.document.params)(), text="Reset to defaults"))
         self.document.seal()
 
-    def apply_preset(self, name: str, params: MandapaParams) -> None:
+    def apply_preset(self, name: str, params) -> None:
         self.document.seal()
         self.document.submit(ReplaceDesign(params, text=f"Preset {name}"))
         self.document.seal()
@@ -641,12 +669,12 @@ class MainWindow(QMainWindow):
     # ---- files ----------------------------------------------------------------------------
     def new(self) -> None:
         if self._confirm_discard():
-            self.set_document(Document())
+            self.set_document(type(self.document)())
             self.log.appendPlainText("new design")
 
     def open(self) -> None:
         start = str(self.document.path.parent if self.document.path else Path.cwd())
-        path, _ = QFileDialog.getOpenFileName(self, "Open design", start, FILE_FILTER)
+        path, _ = QFileDialog.getOpenFileName(self, "Open design", start, self.FILE_FILTER)
         if path:
             self.open_path(Path(path))
 
@@ -654,7 +682,7 @@ class MainWindow(QMainWindow):
         if confirm and not self._confirm_discard():
             return False
         try:
-            document = Document.open(path)
+            document = self.DOCUMENT.open(path)
         except Exception as exc:  # noqa: BLE001 - any reader failure is the user's news
             QMessageBox.critical(self, "Open failed", f"{Path(path).name}\n\n{exc}")
             self.prefs.remove_recent(path)
@@ -678,7 +706,7 @@ class MainWindow(QMainWindow):
     def save_as(self) -> bool:
         current = self.document.path
         suggested = current.with_suffix(".xml") if current else Path.cwd() / f"{self.document.name}.xml"
-        path, _ = QFileDialog.getSaveFileName(self, "Save design", str(suggested), "Temple documents (*.xml)")
+        path, _ = QFileDialog.getSaveFileName(self, "Save design", str(suggested), self.SAVE_FILTER)
         if not path:
             return False
         return self._save_to(Path(path).with_suffix(".xml"))
@@ -736,7 +764,7 @@ class MainWindow(QMainWindow):
         if menu is None:
             return
         menu.clear()
-        paths = sorted(EXAMPLES.glob("*.xml")) if EXAMPLES.is_dir() else []
+        paths = sorted(self.EXAMPLES.glob("*.xml")) if self.EXAMPLES.is_dir() else []
         for path in paths:
             action = QAction(path.stem.replace("_", " "), self)
             action.triggered.connect(lambda checked=False, p=path: self.open_path(p))
@@ -756,7 +784,10 @@ class MainWindow(QMainWindow):
             return
         stem = self.document.path.stem if self.document.path else self.document.name
         folder = self.document.path.parent if self.document.path else Path.cwd()
-        dialog = ExportDialog(self._payload.result, self, suggested=folder / f"{stem}.stl", bed=self.prefs.bed())
+        dialog = ExportDialog(
+            self._payload.result, self, suggested=folder / f"{stem}.stl", bed=self.prefs.bed(),
+            options_cls=self.PRINT_OPTIONS, prepare=self.PREPARE,
+        )
         dialog.logged.connect(self.log.appendPlainText)
         dialog.exported.connect(self._exported)
         self._export_dialog = dialog
@@ -797,23 +828,36 @@ class MainWindow(QMainWindow):
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="temple-gen", description="Mandapa generator GUI.")
-    ap.add_argument("file", nargs="?", help="temple document (.xml) or legacy parameters (.json) to open")
+    return run_editor(MainWindow, prog="temple-gen", description="Mandapa generator GUI.",
+                      file_help="temple document (.xml) or legacy parameters (.json) to open",
+                      argv=argv)
+
+
+def run_editor(
+    window_cls: type[MainWindow], prog: str, description: str, file_help: str,
+    argv: list[str] | None = None,
+) -> int:
+    """The whole launch, for either editor: arguments, theme, icon, window, and the
+    headless ``--screenshot`` mode the smoke test and the orchestrator drive."""
+    ap = argparse.ArgumentParser(prog=prog, description=description)
+    ap.add_argument("file", nargs="?", help=file_help)
     ap.add_argument("--params", "-p", help="document or parameters file to load at start-up")
     ap.add_argument("--screenshot", metavar="PNG", help="render the first build to a PNG and quit")
     ap.add_argument("--screenshot-window", metavar="PNG", help="grab the whole window to a PNG and quit")
     args, qt_args = ap.parse_known_args(argv)
 
     app = QApplication([sys.argv[0], *qt_args])
-    app.setApplicationName(APP_NAME)
+    app.setApplicationName(window_cls.APP_NAME)
+    # One organisation for the suite; the application name is what keeps the two
+    # editors' settings (layout, recents, bed) apart.
     app.setOrganizationName("mandapa")
     # The entrypoint dresses the app; the library never does, so tests meet stock widgets.
     theme.apply(app)
-    app.setWindowIcon(icons.icon("temple", theme.ACCENT))
+    app.setWindowIcon(icons.icon(window_cls.GLYPH, theme.ACCENT))
 
     path = args.params or args.file
     # A window given a file builds that file, not the default design first.
-    window = MainWindow(autobuild=path is None)
+    window = window_cls(autobuild=path is None)
     headless = bool(args.screenshot or args.screenshot_window)
     window.remember_layout = not headless
     if not headless:

@@ -232,8 +232,11 @@ def inspect_parts(parts: list[PartMesh]) -> list[Report]:
     return [inspect_mesh(part.mesh, part.notes, name=part.name) for part in parts]
 
 
-def export_stl(params: MandapaParams, path: str | Path, union: bool = True) -> Report:
-    """Build, union and write a binary STL; returns the print report."""
+def export_stl(params: MandapaParams, path: str | Path, union: bool = True, build=build) -> Report:
+    """Build, union and write a binary STL; returns the print report.
+
+    ``build`` is the family's builder, defaulting to the mandapa's; the gopuram's CLI
+    passes its own."""
     result = build(params)
     mesh = make_mesh(result, union=union)
     path = Path(path)

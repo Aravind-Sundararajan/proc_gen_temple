@@ -894,7 +894,16 @@ def roof_block(p: MandapaParams, L: Layout) -> Solid:
 
 def kudus(p: MandapaParams, L: Layout) -> list[Solid]:
     """Horseshoe-arch ornaments along the kapota face."""
-    P, hk, zk0 = L.kapota_p, L.kapota_h, L.kapota_z0
+    return kudu_row(p, L.ent_hx, L.ent_hy, L.kapota_p, L.kapota_h, L.kapota_z0)
+
+
+def kudu_row(p: MandapaParams, hx: float, hy: float, P: float, hk: float, zk0: float) -> list[Solid]:
+    """Kudus around one kapota course, stated by its own dimensions.
+
+    Split from :func:`kudus` so the gopuram's base prastara — a kapota that is not this
+    Layout's — can carry the same row; ``p`` supplies only ``kudus``, ``finial`` and the
+    printer, which both parameter families state.
+    """
     if not p.kudus or P <= 0.05 or hk <= 0.05:
         return []
     r = max(0.22 * hk, p.min_feature * 1.2)
@@ -925,13 +934,13 @@ def kudus(p: MandapaParams, L: Layout) -> list[Solid]:
     f = 0.3 * r
     crown = p.finial and f >= 0.6 * p.min_feature and f >= 0.15
     for s in (1, -1):  # +X / -X sides: polygon in yz, extruded along x
-        x0, x1 = L.ent_hx + P - 0.8 * r, L.ent_hx + P + depth
-        for c in positions(L.ent_hy):
+        x0, x1 = hx + P - 0.8 * r, hx + P + depth
+        for c in positions(hy):
             parts.append(extrude(semicircle(c), "yz", s * x0, s * x1, name="kudu"))
             if crown:
                 parts.append(knob(f, zb + r).translated(s * (x0 + x1) / 2, c, 0.0))
-        y0, y1 = L.ent_hy + P - 0.8 * r, L.ent_hy + P + depth
-        for c in positions(L.ent_hx):
+        y0, y1 = hy + P - 0.8 * r, hy + P + depth
+        for c in positions(hx):
             parts.append(extrude(semicircle(c), "xz", s * y0, s * y1, name="kudu"))
             if crown:
                 parts.append(knob(f, zb + r).translated(c, s * (y0 + y1) / 2, 0.0))

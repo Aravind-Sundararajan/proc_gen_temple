@@ -4,6 +4,9 @@ Interface contract shared by the GUI export dialog and the CLI: keep :class:`Pri
 :class:`PartMesh` and :func:`prepare_parts` stable; extend them with new fields rather
 than renaming.  The GUI builds its dialog from ``dataclasses.fields(PrintOptions)``, so
 every field keeps a simple type, a default and ``label``/``help`` metadata.
+:class:`Pegs`, :func:`slab`, :func:`boolean_op`, :func:`check_bed` and :func:`drop_to_bed`
+are the pieces ``gopuram.printprep`` builds its own split from; only :func:`prepare_parts`
+knows the mandapa's anatomy.
 
 Why split at all
 ----------------
@@ -61,8 +64,12 @@ __all__ = [
     "PartMesh",
     "Pegs",
     "PrintOptions",
+    "boolean_op",
+    "check_bed",
+    "drop_to_bed",
     "peg_plan",
     "prepare_parts",
+    "slab",
 ]
 
 #: Total thickness discarded at each cut (half above and half below the seam).
@@ -258,17 +265,17 @@ def peg_plan(result: Build) -> tuple[Pegs | None, Pegs | None, list[str]]:
 # ---- boolean helpers ------------------------------------------------------------------
 
 
-def _boolean(op: str, meshes: list[trimesh.Trimesh]) -> trimesh.Trimesh:
+def boolean_op(op: str, meshes: list[trimesh.Trimesh]) -> trimesh.Trimesh:
     fn = getattr(trimesh.boolean, op)
     return fn(meshes, engine="manifold", check_volume=True)
 
 
-def _slab(mesh: trimesh.Trimesh, z0: float, z1: float) -> trimesh.Trimesh:
+def slab(mesh: trimesh.Trimesh, z0: float, z1: float) -> trimesh.Trimesh:
     """The part of ``mesh`` between two horizontal planes (intersection with a box)."""
     lo, hi = mesh.bounds
     m = 10.0
     box = box_between((lo[0] - m, lo[1] - m, z0), (hi[0] + m, hi[1] + m, z1))
-    return _boolean("intersection", [mesh, to_trimesh(box)])
+    return boolean_op("intersection", [mesh, to_trimesh(box)])
 
 
 def _sub_mesh(mesh: trimesh.Trimesh, face_mask: np.ndarray) -> trimesh.Trimesh:
@@ -318,10 +325,10 @@ def _reglue_orphans(
         keep &= ~mask
     notes = []
     if to_base:
-        base = _boolean("union", [base, *to_base])
+        base = boolean_op("union", [base, *to_base])
         notes.append(f"{len(to_base)} piece(s) of plinth ornament above the floor seam kept with the base")
     if to_roof:
-        roof = _boolean("union", [roof, *to_roof])
+        roof = boolean_op("union", [roof, *to_roof])
         notes.append(f"{len(to_roof)} piece(s) hanging below the beam seam kept with the roof")
     if loose:
         notes.append(f"{loose} loose fragment(s) between the seams stay in the colonnade part")
@@ -384,7 +391,7 @@ def _hollow(part: PartMesh, result: Build, wall: float) -> None:
         ]
     )
     before = part.mesh.volume
-    part.mesh = _boolean("difference", [part.mesh, to_trimesh(cavity), to_trimesh(drains)])
+    part.mesh = boolean_op("difference", [part.mesh, to_trimesh(cavity), to_trimesh(drains)])
     part.notes.append(
         f"plinth hollowed to a {wall:g} mm wall with two {DRAIN_DIAMETER:g} mm drain holes "
         f"underneath; {(before - part.mesh.volume) / 1000:.1f} cm3 saved"
@@ -401,7 +408,7 @@ def _flip_roof(part: PartMesh, result: Build) -> None:
     part.notes.append("roof part flipped: flat top on the bed, sockets facing up")
 
 
-def _drop_to_bed(part: PartMesh) -> None:
+def drop_to_bed(part: PartMesh) -> None:
     if len(part.mesh.faces):
         part.mesh.apply_translation([0.0, 0.0, -float(part.mesh.bounds[0][2])])
 
@@ -417,7 +424,7 @@ def _fit_factor(extents: np.ndarray, bed: tuple[float, float, float]) -> tuple[f
     return min(flat, bz / sz), turned > upright
 
 
-def _check_bed(parts: list[PartMesh], options: PrintOptions) -> None:
+def check_bed(parts: list[PartMesh], options: PrintOptions) -> None:
     bed = options.bed_mm
     if bed is None:
         if options.fit_to_bed:
@@ -430,7 +437,7 @@ def _check_bed(parts: list[PartMesh], options: PrintOptions) -> None:
     if options.fit_to_bed and factor < 1.0:
         for part in parts:
             part.mesh.apply_scale(factor)
-            _drop_to_bed(part)
+            drop_to_bed(part)
             part.notes.append(
                 f"scaled by {factor:.3f} to fit the {bed_text} bed (pegs and clearances scaled too)"
             )
@@ -457,18 +464,18 @@ def _split(result: Build, mesh: trimesh.Trimesh, options: PrintOptions) -> list[
     beam_z = L.corbel_top * s  # the seam where the corbels end and the beams begin
     half = CUT_GAP / 2
     lo, hi = mesh.bounds
-    base = _slab(mesh, float(lo[2]) - 1.0, floor_z - half)
-    mid = _slab(mesh, floor_z + half, beam_z - half)
-    roof = _slab(mesh, beam_z + half, float(hi[2]) + 1.0)
+    base = slab(mesh, float(lo[2]) - 1.0, floor_z - half)
+    mid = slab(mesh, floor_z + half, beam_z - half)
+    roof = slab(mesh, beam_z + half, float(hi[2]) + 1.0)
     base, mid, roof, glue_notes = _reglue_orphans(base, mid, roof, floor_z, beam_z)
 
     floor_pegs, beam_pegs, peg_notes = peg_plan(result)
     if floor_pegs is not None:
-        base = _boolean("union", [base, to_trimesh(floor_pegs.peg_solid())])
-        mid = _boolean("difference", [mid, to_trimesh(floor_pegs.hole_solid())])
+        base = boolean_op("union", [base, to_trimesh(floor_pegs.peg_solid())])
+        mid = boolean_op("difference", [mid, to_trimesh(floor_pegs.hole_solid())])
     if beam_pegs is not None:
-        mid = _boolean("union", [mid, to_trimesh(beam_pegs.peg_solid())])
-        roof = _boolean("difference", [roof, to_trimesh(beam_pegs.hole_solid())])
+        mid = boolean_op("union", [mid, to_trimesh(beam_pegs.peg_solid())])
+        roof = boolean_op("difference", [roof, to_trimesh(beam_pegs.hole_solid())])
 
     parts = [
         PartMesh("base", base, colour=PART_COLOURS["base"]),
@@ -502,7 +509,7 @@ def _split(result: Build, mesh: trimesh.Trimesh, options: PrintOptions) -> list[
         _flip_roof(parts[2], result)
     parts = [part for part in parts if len(part.mesh.faces)]
     for part in parts:
-        _drop_to_bed(part)
+        drop_to_bed(part)
     return parts
 
 
@@ -522,7 +529,7 @@ def prepare_parts(result: Build, options: PrintOptions | None = None) -> list[Pa
             _hollow(part, result, options.hollow_wall_mm)
         if options.flip_roof:
             part.notes.append("roof not flipped: the roof is only a separate part when split")
-        _drop_to_bed(part)
+        drop_to_bed(part)
         parts = [part]
-    _check_bed(parts, options)
+    check_bed(parts, options)
     return parts
