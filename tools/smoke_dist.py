@@ -1,11 +1,12 @@
 """Prove that a PyInstaller folder works and keeps its promises, with nobody at the screen.
 
-Run after ``pyinstaller proc_gen_temple.spec`` (``devtool build`` does).  It uses the two
-executables the way a user would — the command exports a model, the editor renders a
-screenshot — and then holds the folder to the README's licence note: only LGPL Qt modules (the
-PySide6 Essentials wheel's own list), the third-party licence files, the LGPL and GPL texts.
-Exit status is the verdict; the reasons are printed.  It runs under the development venv (it
-reads the wheels' RECORDs and decodes the screenshot with Qt), never inside the bundle.
+Run after ``pyinstaller proc_gen_temple.spec`` (``devtool build`` does).  It uses all four
+executables the way a user would — each family's command exports a model, each family's
+editor renders a screenshot — and then holds the folder to the README's licence note: only
+LGPL Qt modules (the PySide6 Essentials wheel's own list), the third-party licence files, the
+LGPL and GPL texts.  Exit status is the verdict; the reasons are printed.  It runs under the
+development venv (it reads the wheels' RECORDs and decodes the screenshots with Qt), never
+inside the bundle.
 
 On a CI runner (``CI`` set) the editor is started only as far as its argument parser.  A
 runner has no desktop for a window and no GL for the viewer, and a windowed program that
@@ -57,62 +58,63 @@ def wheel_files(dist: str) -> set[str]:
     return {f.as_posix() for f in files if f.parts and f.parts[0] == "PySide6"}
 
 
-# ---- the command ------------------------------------------------------------------------------
+# ---- the commands -----------------------------------------------------------------------------
 
 
-def check_cli(tmp: Path) -> None:
-    exe = DIST / f"mandapa{EXE}"
+def check_cli(tmp: Path, name: str, preset: str, term: str) -> None:
+    """One family's headless command: an export, the glossary, the About versions."""
+    exe = DIST / f"{name}{EXE}"
     if not exe.is_file():
         fail(f"{exe} is missing")
         return
-    out = tmp / "smoke.stl"
-    result = run([str(exe), "--preset", "Desk mandapa", "--out", str(out)])
+    out = tmp / f"smoke_{name}.stl"
+    result = run([str(exe), "--preset", preset, "--out", str(out)])
     if result.returncode != 0 or "watertight yes" not in result.stdout:
-        fail(f"mandapa export failed ({result.returncode}):\n{result.stdout}\n{result.stderr}")
+        fail(f"{name} export failed ({result.returncode}):\n{result.stdout}\n{result.stderr}")
     elif out.stat().st_size < 10_000:
-        fail(f"mandapa wrote a {out.stat().st_size}-byte STL")
+        fail(f"{name} wrote a {out.stat().st_size}-byte STL")
     else:
-        ok(f"mandapa exported a watertight STL ({out.stat().st_size // 1000} kB)")
+        ok(f"{name} exported a watertight STL ({out.stat().st_size // 1000} kB)")
     result = run([str(exe), "--glossary"])
-    if "garbhagriha" not in result.stdout:
-        fail("mandapa --glossary does not list the vocabulary")
+    if term not in result.stdout:
+        fail(f"{name} --glossary does not list the vocabulary")
     result = run([str(exe), "--about"])
     if "not installed" in result.stdout:
-        fail("mandapa --about cannot read a dependency's version: metadata missing from the bundle")
+        fail(f"{name} --about cannot read a dependency's version: metadata missing from the bundle")
     else:
-        ok("mandapa --about reads every dependency's version")
+        ok(f"{name} --about reads every dependency's version")
 
 
-# ---- the editor -------------------------------------------------------------------------------
+# ---- the editors ------------------------------------------------------------------------------
 
 
-def check_gui(tmp: Path) -> None:
-    exe = DIST / f"temple-gen{EXE}"
+def check_gui(tmp: Path, name: str, params: Path) -> None:
+    """One family's editor: the screenshot, or as far as the parser on a CI runner."""
+    exe = DIST / f"{name}{EXE}"
     if not exe.is_file():
         fail(f"{exe} is missing")
         return
     if os.environ.get("CI"):
         result = run([str(exe), "--help"], timeout=120)
         if result.returncode != 0:
-            fail(f"temple-gen --help exited {result.returncode}: the editor does not start\n{result.stderr}")
+            fail(f"{name} --help exited {result.returncode}: the editor does not start\n{result.stderr}")
         else:
-            ok("temple-gen starts as far as its argument parser (a CI runner has no desktop: no screenshot)")
+            ok(f"{name} starts as far as its argument parser (a CI runner has no desktop: no screenshot)")
         return
-    png = tmp / "smoke.png"
-    params = ROOT / "examples" / "small_shrine.xml"
+    png = tmp / f"smoke_{name}.png"
     try:
         result = run([str(exe), "--params", str(params), "--screenshot", str(png)], timeout=180)
     except subprocess.TimeoutExpired:
-        fail("temple-gen did not exit within 180 s: a dialog is probably waiting, or no frame was ever drawn")
+        fail(f"{name} did not exit within 180 s: a dialog is probably waiting, or no frame was ever drawn")
         return
     if result.returncode != 0 or not png.is_file():
-        fail(f"temple-gen screenshot failed ({result.returncode}):\n{result.stdout}\n{result.stderr}")
+        fail(f"{name} screenshot failed ({result.returncode}):\n{result.stdout}\n{result.stderr}")
         return
     from PySide6.QtGui import QImage  # the development venv has Qt; the check needs no app
 
     image = QImage(str(png))
     if image.isNull() or image.width() < 200:
-        fail(f"temple-gen wrote an unreadable screenshot ({png.stat().st_size} bytes)")
+        fail(f"{name} wrote an unreadable screenshot ({png.stat().st_size} bytes)")
         return
     step = max(image.width() // 40, 1)
     colours = {
@@ -121,21 +123,23 @@ def check_gui(tmp: Path) -> None:
         for y in range(0, image.height(), step)
     }
     if len(colours) < 16:
-        fail(f"temple-gen's screenshot is flat ({len(colours)} colours): no GL context, or nothing drawn")
+        fail(f"{name}'s screenshot is flat ({len(colours)} colours): no GL context, or nothing drawn")
     else:
-        ok(f"temple-gen rendered {image.width()}x{image.height()} px with {len(colours)} sampled colours")
+        ok(f"{name} rendered {image.width()}x{image.height()} px with {len(colours)} sampled colours")
 
 
 # ---- what the folder carries ------------------------------------------------------------------
 
 
 def check_contents() -> None:
-    examples = sorted(p.name for p in (ROOT / "examples").glob("*.xml"))
-    bundled = sorted(p.name for p in (INTERNAL / "examples").glob("*.xml"))
-    if bundled != examples:
-        fail(f"examples in the bundle {bundled} differ from the repository's {examples}")
-    else:
-        ok(f"{len(bundled)} examples travel with the editor")
+    for sub in ("", "gopuram"):
+        examples = sorted(p.name for p in (ROOT / "examples" / sub).glob("*.xml"))
+        bundled = sorted(p.name for p in (INTERNAL / "examples" / sub).glob("*.xml"))
+        where = f"examples/{sub}" if sub else "examples"
+        if bundled != examples:
+            fail(f"{where} in the bundle {bundled} differ from the repository's {examples}")
+        else:
+            ok(f"{len(bundled)} examples travel in {where}")
 
     licences = INTERNAL / "licenses"
     if not (licences / "THIRD_PARTY.md").is_file():
@@ -176,8 +180,10 @@ def main() -> int:
         print(f"no bundle at {DIST}; run pyinstaller proc_gen_temple.spec first")
         return 2
     with tempfile.TemporaryDirectory() as tmp:
-        check_cli(Path(tmp))
-        check_gui(Path(tmp))
+        check_cli(Path(tmp), "mandapa", "Desk mandapa", "garbhagriha")
+        check_cli(Path(tmp), "gopuram", "Desk gopuram", "mahanasi")
+        check_gui(Path(tmp), "temple-gen", ROOT / "examples" / "small_shrine.xml")
+        check_gui(Path(tmp), "gopuram-gen", ROOT / "examples" / "gopuram" / "chola_gateway_morning.xml")
     check_contents()
     check_qt_is_essentials_only()
     report_size()

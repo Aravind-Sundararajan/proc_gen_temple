@@ -16,9 +16,11 @@ dependencies = [
 [project.scripts]
 temple-gen = "mandapa.gui.app:main"
 mandapa = "mandapa.cli:main"
+gopuram-gen = "gopuram.gui.app:main"
+gopuram = "gopuram.cli:main"
 
 [tool.poetry]
-packages = [{ include = "mandapa" }]
+packages = [{ include = "mandapa" }, { include = "gopuram" }]
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.3"

@@ -1,6 +1,6 @@
 ---
 name: run
-description: Launch the mandapa editor, export an STL headlessly, run the tests, or render a screenshot with the correct environment (the poetry venv, not any PATH python). Trigger on run/launch/test/screenshot/export requests for this project.
+description: Launch the mandapa or gopuram editor, export an STL headlessly, run the tests, or render a screenshot with the correct environment (the poetry venv, not any PATH python). Trigger on run/launch/test/screenshot/export requests for this project.
 ---
 
 # Running proc_gen_temple
@@ -42,15 +42,22 @@ poetry run ruff check mandapa tests
 `QT_QPA_PLATFORM=offscreen` themselves; tests that need a real GL context skip
 when none exists.
 
-## Launch the editor
+## Launch an editor
 
 ```bash
 poetry run temple-gen
 ```
 
-Optionally `poetry run temple-gen path/to/design.xml` via `--params`. This
-blocks on the Qt event loop — run it in the background if the session needs to
-keep working. Entry point: `mandapa.gui.app:main`.
+```bash
+poetry run gopuram-gen
+```
+
+Two sister applications share one shell: `temple-gen` edits the mandapa (files
+are `<temple>` XML, examples in `examples/`), `gopuram-gen` the gateway tower
+(`<gopuram>` XML, examples in `examples/gopuram/`). Optionally pass a document
+via `--params`. Either blocks on the Qt event loop — run it in the background if
+the session needs to keep working. Entry points: `mandapa.gui.app:main`,
+`gopuram.gui.app:main`.
 
 ## Screenshot / render check
 
@@ -59,6 +66,10 @@ are verified without a human at the screen:
 
 ```bash
 poetry run temple-gen --params examples/NAME.xml --screenshot out/NAME.png
+```
+
+```bash
+poetry run gopuram-gen --params examples/gopuram/NAME.xml --screenshot out/NAME.png
 ```
 
 `--screenshot-window out/window.png` grabs the whole main window instead of the
@@ -71,8 +82,12 @@ suite to say the frame is right.
 poetry run mandapa --out out/mandapa.stl
 ```
 
-`--params FILE` (.xml or legacy .json), `--preset NAME` / `--list-presets`,
-`--random [SEED]`, `--set name=value`, `--format stl|3mf`, `--split`,
-`--hollow MM`, `--bed X,Y,Z`. It prints the print report (size, volume,
-overhangs, bridges, watertightness) and exits non-zero if a part is not
-watertight.
+```bash
+poetry run gopuram --out out/gopuram.stl
+```
+
+Shared flags: `--params FILE` (mandapa also reads legacy .json), `--preset NAME`
+/ `--list-presets`, `--random [SEED]`, `--set name=value`, `--format stl|3mf`,
+`--split`, `--bed X,Y,Z`. Family-specific: mandapa has `--hollow MM` and
+`--vigraham W,D,H`; gopuram has `--procession W,H` (scale so the passage clears
+an object). Both print the report and exit non-zero if a part is not watertight.

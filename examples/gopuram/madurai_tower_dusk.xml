@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='utf-8'?>
+<gopuram version="1" name="Nayaka tower at dusk">
+  <params>
+    <param name="base_width" value="104.0" />
+    <param name="base_depth" value="62.0" />
+    <param name="plinth_height" value="11.0" />
+    <param name="plinth_style" value="kapotabandha" />
+    <param name="plinth_projection" value="0.12" />
+    <param name="plinth_galapadas" value="true" />
+    <param name="plinth_padma" value="false" />
+    <param name="dvara_width" value="0.1" />
+    <param name="dvara_height" value="0.78" />
+    <param name="wall_height" value="34.0" />
+    <param name="wall_storeys" value="2" />
+    <param name="pilasters" value="true" />
+    <param name="niches" value="true" />
+    <param name="kapota_height" value="3.0" />
+    <param name="kapota_projection" value="2.4" />
+    <param name="kudus" value="true" />
+    <param name="talas" value="9" />
+    <param name="tala_ratio" value="0.88" />
+    <param name="tala_height" value="11.5" />
+    <param name="hara" value="true" />
+    <param name="salas_per_tala" value="2" />
+    <param name="panjaras" value="false" />
+    <param name="nasi" value="false" />
+    <param name="finial" value="true" />
+    <param name="tala_openings" value="true" />
+    <param name="crown_height" value="12.0" />
+    <param name="kalasas" value="9" />
+    <param name="mahanasi" value="true" />
+    <param name="printer_profile" value="fdm_0.25" />
+    <param name="printable_overhangs" value="true" />
+    <param name="scale" value="1.0" />
+    <param name="seed" value="0" />
+  </params>
+  <look light_azimuth="205.0" light_elevation="11.0" light_strength="1.15" ambient_strength="0.26" rim_strength="0.4" surface_colour="0.8 0.62 0.5" overhang_colour="0.92 0.25 0.2" bridge_colour="0.95 0.6 0.15" background_colour="0.29 0.2 0.23" background_top="0.56 0.34 0.3" />
+  <camera azimuth="-118.0" elevation="10.0" distance="359.7" cx="0.0" cy="0.0" cz="78.2" />
+</gopuram>

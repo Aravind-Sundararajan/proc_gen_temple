@@ -1,20 +1,22 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec for proc_gen_temple: one folder, two executables.
+"""PyInstaller spec for proc_gen_temple: one folder, four executables.
 
 Run ``pyinstaller proc_gen_temple.spec --noconfirm`` (or ``devtool build``, which also draws
 the icons first and smoke-tests the result).  The output is ``dist/proc_gen_temple/`` holding
-``temple-gen`` (the editor, a windowed program) and ``mandapa`` (the headless command, a
-console program) over one shared ``_internal/``; on macOS the same folder is also wrapped as
-``Mandapa Generator.app``.
+the mandapa pair — ``temple-gen`` (the editor, a windowed program) and ``mandapa`` (the
+headless command, a console program) — and the gopuram pair, ``gopuram-gen`` and ``gopuram``,
+over one shared ``_internal/``; on macOS the folder is also wrapped as ``Mandapa
+Generator.app``.
 
 Why one folder, never onefile
 -----------------------------
 The README's licence note promises Qt "dynamically loaded and replaceable (a folder install)":
 that is the LGPL's condition for shipping it, and a onefile build — which unpacks a private
-copy into a temp directory on every start — breaks it, and the start-up time with it.  The two
-executables are two ``Analysis`` objects collected into the same ``COLLECT``: PyInstaller drops
-the duplicate libraries, so the second program costs a few hundred kilobytes.  ``MERGE`` is
-deliberately not used; in PyInstaller 6 it gives every executable onefile semantics.
+copy into a temp directory on every start — breaks it, and the start-up time with it.  The
+executables are separate ``Analysis`` objects collected into the same ``COLLECT``: PyInstaller
+drops the duplicate libraries, so each further program costs a few hundred kilobytes — which
+is what makes shipping the sister application nearly free.  ``MERGE`` is deliberately not
+used; in PyInstaller 6 it gives every executable onefile semantics.
 
 Why the Qt modules are an allow-list
 ------------------------------------
@@ -48,6 +50,7 @@ from mandapa.help import LICENCE_NOTE, THIRD_PARTY  # noqa: E402
 
 BUNDLE_NAME = "proc_gen_temple"
 GUI_NAME, CLI_NAME = "temple-gen", "mandapa"
+GOPURAM_GUI_NAME, GOPURAM_CLI_NAME = "gopuram-gen", "gopuram"
 APP_NAME = "Mandapa Generator"
 BUNDLE_ID = "io.github.aravind-sundararajan.mandapa"
 ICON_DIR = ROOT / "build" / "icons"  # drawn by tools/make_icons.py; optional
@@ -182,7 +185,10 @@ def third_party_notice() -> Path:
     return path
 
 
-datas = [(str(ROOT / "examples" / "*.xml"), "examples")]
+datas = [
+    (str(ROOT / "examples" / "*.xml"), "examples"),
+    (str(ROOT / "examples" / "gopuram" / "*.xml"), "examples/gopuram"),
+]
 datas += collect_data_files("trimesh")  # its resources folder; the hook does this too, harmlessly
 datas += [(str(third_party_notice()), "licenses")]
 for t in THIRD_PARTY:
@@ -198,12 +204,17 @@ hidden_gui = ["manifold3d", *collect_submodules("OpenGL.platform"), *collect_sub
 hidden_cli = ["manifold3d"]
 
 
-def icon(suffix: str) -> str | None:
-    path = ICON_DIR / f"mandapa.{suffix}"
+def icon(suffix: str, name: str = "mandapa") -> str | None:
+    path = ICON_DIR / f"{name}.{suffix}"
     return str(path) if path.is_file() else None
 
 
-# ---- the two programs -------------------------------------------------------------------------
+# ---- the four programs ------------------------------------------------------------------------
+
+# the dependency rule (tests/test_dependency_rule.py) says the commands are Qt-free; hold them to it
+CLI_EXCLUDES = COMMON_EXCLUDES + [
+    "PySide6", "shiboken6", "pyqtgraph", "OpenGL", "mandapa.gui", "gopuram.gui",
+]
 
 gui = Analysis(  # noqa: F821
     [str(ROOT / "tools" / "launch_gui.py")],
@@ -226,13 +237,38 @@ cli = Analysis(  # noqa: F821
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    # the dependency rule (tests/test_dependency_rule.py) says the command is Qt-free; hold it to that
-    excludes=COMMON_EXCLUDES + ["PySide6", "shiboken6", "pyqtgraph", "OpenGL", "mandapa.gui"],
+    excludes=CLI_EXCLUDES,
+    noarchive=False,
+)
+gopuram_gui = Analysis(  # noqa: F821
+    [str(ROOT / "tools" / "launch_gopuram_gui.py")],
+    pathex=[str(ROOT)],
+    binaries=[],
+    datas=datas,
+    hiddenimports=hidden_gui,
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=COMMON_EXCLUDES + QT_EXCLUDES,
+    noarchive=False,
+)
+gopuram_cli = Analysis(  # noqa: F821
+    [str(ROOT / "tools" / "launch_gopuram_cli.py")],
+    pathex=[str(ROOT)],
+    binaries=[],
+    datas=datas,
+    hiddenimports=hidden_cli,
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=CLI_EXCLUDES,
     noarchive=False,
 )
 
 gui.binaries = without_addons(gui.binaries)
 gui.datas = without_addons(gui.datas)
+gopuram_gui.binaries = without_addons(gopuram_gui.binaries)
+gopuram_gui.datas = without_addons(gopuram_gui.datas)
 
 gui_exe = EXE(  # noqa: F821
     PYZ(gui.pure),  # noqa: F821
@@ -270,8 +306,44 @@ cli_exe = EXE(  # noqa: F821
     entitlements_file=None,
     icon=icon("ico") if sys.platform == "win32" else None,
 )
+gopuram_gui_exe = EXE(  # noqa: F821
+    PYZ(gopuram_gui.pure),  # noqa: F821
+    gopuram_gui.scripts,
+    [],
+    exclude_binaries=True,
+    name=GOPURAM_GUI_NAME,
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=False,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon=icon("ico", "gopuram") if sys.platform == "win32" else None,
+)
+gopuram_cli_exe = EXE(  # noqa: F821
+    PYZ(gopuram_cli.pure),  # noqa: F821
+    gopuram_cli.scripts,
+    [],
+    exclude_binaries=True,
+    name=GOPURAM_CLI_NAME,
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=False,
+    console=True,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon=icon("ico", "gopuram") if sys.platform == "win32" else None,
+)
 
-# The editor goes first: BUNDLE takes the first executable as the app's own.
+# The mandapa editor goes first: BUNDLE takes the first executable as the app's own.
 coll = COLLECT(  # noqa: F821
     gui_exe,
     gui.binaries,
@@ -279,6 +351,12 @@ coll = COLLECT(  # noqa: F821
     cli_exe,
     cli.binaries,
     cli.datas,
+    gopuram_gui_exe,
+    gopuram_gui.binaries,
+    gopuram_gui.datas,
+    gopuram_cli_exe,
+    gopuram_cli.binaries,
+    gopuram_cli.datas,
     strip=False,
     upx=False,
     upx_exclude=[],
