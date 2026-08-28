@@ -9,6 +9,10 @@ does the same from a file. Every part is a closed solid, every export is one wat
 body, and every underside that would fail on a printer is either kept inside the 45°
 rule or painted red before you find out the hard way.
 
+Beside it lives its sister application: a generator for the **gopuram**, the gateway
+tower of the enclosure wall — same editor shell, same command shape, its own building
+(see [The sister app](#the-sister-app-gopuram)).
+
 ![The editor on examples/granite_dusk.xml: a stepped roof over a 3×3 hall, the Look dock open](docs/editor.png)
 
 ## Quick start
@@ -85,6 +89,60 @@ watertight.
 ![The default design: a sixteen-pillar Chola hall, 108 × 120 × 68 mm](docs/preview.png)
 
 ![The Early Chola shrine preset: a garbhagriha the width of the building behind a one-bay porch, devakoshthas between the wall pilasters, the vimana rising inside the hara](docs/shrine.png)
+
+## The sister app: gopuram
+
+![The Nayaka tower at dusk example: nine diminishing talas over a two-storey base, the barrel-vaulted sala sikhara with nine kalasas](docs/gopuram.png)
+
+A mandapa stands inside the enclosure; the **gopuram** is how you enter it — an oblong
+masonry base with the processional passage (dvara) through it, one or two storeys of
+pilastered wall, then diminishing brick talas each ringed by a hara of miniature
+shrines, and on top the barrel-vaulted **sala sikhara** with a mahanasi on each end
+and an odd row of kalasas along its ridge. `gopuram-gen` opens the editor on it,
+`gopuram` is the headless command:
+
+```bash
+poetry run gopuram-gen
+poetry run gopuram --preset "Rayagopuram" --split --out out/raya.stl
+poetry run gopuram --preset "Madurai Nayaka tower" --procession 12,30 --out out/tower.stl
+poetry run gopuram-gen --params examples/gopuram/madurai_tower_dusk.xml --screenshot out/tower.png
+```
+
+`gopuram --help` lists the rest; the flags are the mandapa command's wherever the
+building allows it, and `--glossary` explains the gateway's own words (tala, pada,
+mahanasi).
+
+The two applications are the same program wearing different facts. The editor shell,
+the parameter panel, the viewer, the undo machinery, the print reports and the theme
+are `mandapa`'s, generated from whichever parameter record the document holds; the
+`gopuram` package supplies what is of the gateway — its knobs, its builder, its
+presets, its `<gopuram>` file format — and stands on `mandapa` for everything else.
+The dependency runs one way (`gopuram → mandapa`, never back) and
+`tests/test_dependency_rule.py` parses every module's imports to hold it.
+
+What is the gateway's own:
+
+* **The passage is the contract.** The dvara stays at least twice as high as it is
+  wide (the texts' floor), a lintel of at least 0.15 of the wall stays above it, and
+  the plinth mouldings — which run through the passage, as at the built gateways —
+  never seal it: the build log states the *clear* width between them, and
+  `--procession W,H` sets the export scale so an object that size passes. The one
+  bridge in the building is the passage soffit, reported when it spans past 30 mm.
+* **The taper is one knob.** `tala_ratio` shrinks each tala's plan; heights shrink at
+  the gentler `(2 + ratio) / 3`, which is what leans the profile inward the way the
+  built towers lean. The hara on every terrace reuses the mandapa's own kutas, salas
+  and panjaras at tala scale — one spelling of a shrine, two buildings.
+* **Its own document.** `<gopuram version="1">` through the same format engine, with
+  its own version counter and no legacy era; a mandapa build refuses a gopuram file
+  naming both tags, and the reverse, instead of quietly misreading it.
+* **Its own split.** `--split` parts base from superstructure at the top of the base
+  prastara — the seam the builders parted it at — with pegs over the jambs, never over
+  the void. There is no `--hollow` and no `--flip-roof`: options that could only
+  apologise are not offered.
+
+Presets: an early Chola gateway, the Vijayanagara rayagopuram, a nine-tala Madurai
+Nayaka tower, a 60 mm desk gopuram. Examples with authored light and camera live in
+`examples/gopuram/`.
 
 ## The vocabulary
 
@@ -182,18 +240,23 @@ mandapa/
   ornament.py builder.py                  the building: one function per member, layout maths
   params.py presets.py                    the knobs with their metadata; the regional types
   look.py document.py                     the design as a record, and its edits as commands
-  io/       temple_xml.py                 the versioned <temple> format, legacy JSON reader
+  io/       temple_xml.py                 the versioned format engine; <temple>, legacy JSON
   export.py printprep.py cli.py           union, reports, STL/3MF, split/hollow/bed, headless
   gui/      app.py theme.py viewer.py ... Qt, verbs, docks, the authored look on screen
+gopuram/
+  params.py builder.py presets.py         the gateway: its knobs, its members, its types
+  io/ document.py printprep.py cli.py     the <gopuram> binding, its split, its command
+  help.py gui/app.py                      its glossary; the shared shell on its facts
 tools/
-  launch_gui.py launch_cli.py            the two entry points PyInstaller freezes
-  make_icons.py smoke_dist.py            the icon from the app's glyph; proof that a bundle works
+  launch_*.py                            the four entry points PyInstaller freezes
+  make_icons.py smoke_dist.py            the icons from the apps' glyphs; proof that a bundle works
 ```
 
 The dependency rule is one-directional and `tests/test_dependency_rule.py` parses every
-module's imports to hold it: nothing outside `gui/` imports Qt, pyqtgraph or OpenGL, and
-`meshlib` imports nothing but numpy and the standard library. A design can therefore be
-built, unioned, reported and written on a machine with no display.
+module's imports to hold it: nothing outside the `gui/` packages imports Qt, pyqtgraph
+or OpenGL; `gopuram` stands on `mandapa` and `mandapa` never imports its sister; and
+`meshlib` imports nothing but numpy and the standard library. A design of either family
+can therefore be built, unioned, reported and written on a machine with no display.
 
 ## Where the decisions live
 
@@ -203,7 +266,10 @@ to one body; `test_sanctum.py` pins where the cell stands, the 2 : 1 dvara, that
 doorway is the only way in and the union stays one body round it; `test_printprep.py`
 pins the peg clearance and the volume budget of a split; `test_theme.py` holds each
 colour of the chrome to the render value it came from; `test_temple_xml.py` holds the
-format to its guarantees. About 560 tests, a minute.
+format to its guarantees. `test_gopuram_builder.py` pins the gateway's own promises —
+the 2 : 1 passage that nothing stands in, the taper that leans, the odd kalasa row —
+and `test_dependency_rule.py` holds the two packages one-directional. About 750 tests,
+a minute and a half.
 
 ## Development
 
@@ -224,8 +290,10 @@ what a check or a build is:
 ./devtool.sh shot granite_dusk   # examples/granite_dusk.xml → out/granite_dusk.png
 ```
 
-`setup`, `test [args]`, `fuzz`, `lint`, `check`, `run`, `export …`, `shot NAME`, `icons`,
-`licenses`, `build`, `smoke`, `clean`; `devtool help` lists them.
+`setup`, `test [args]`, `fuzz`, `lint`, `check`, `run`, `export …`, `grun`, `gexport …`,
+`shot NAME`, `icons`, `licenses`, `build`, `smoke`, `clean`; `devtool help` lists them.
+`shot` finds its example in `examples/` or `examples/gopuram/` and uses the matching
+editor.
 
 ## Packaging
 
@@ -234,21 +302,24 @@ what a check or a build is:
 ./devtool.sh build      # icons, PyInstaller, smoke test → dist/proc_gen_temple/
 ```
 
-`proc_gen_temple.spec` builds one folder holding both programs — `temple-gen` (windowed) and
-`mandapa` (console) over a shared `_internal/` — and on macOS wraps it as `Mandapa
-Generator.app`. It is a folder on purpose: the LGPL wants Qt replaceable, and a onefile build
-unpacks a private copy on every start. The spec excludes every module of the PySide6 Addons
+`proc_gen_temple.spec` builds one folder holding all four programs — `temple-gen` and
+`gopuram-gen` (windowed), `mandapa` and `gopuram` (console) over a shared `_internal/` —
+and on macOS wraps it as `Mandapa Generator.app`. It is a folder on purpose: the LGPL wants
+Qt replaceable, and a onefile build unpacks a private copy on every start; sharing
+`_internal/` is also what makes the sister pair cost a few hundred kilobytes rather than a
+second Qt. The spec excludes every module of the PySide6 Addons
 wheel by name (the Essentials wheel's RECORD is the allow-list, and everything in it is
 LGPL), copies each dependency's licence files and a generated `THIRD_PARTY.md` into
-`licenses/`, and ships `examples/`. `tools/smoke_dist.py` then runs the bundled command and
-editor — an export, a screenshot — and fails the build if an Addons file, a licence text or
-an example is missing. Under `CI` it starts the editor only as far as its argument parser: a
-runner has no desktop, and a windowed program that cannot draw waits rather than fails. The
-icon is drawn from the editor's own glyph by `tools/make_icons.py`.
+`licenses/`, and ships `examples/` with its `gopuram/` subfolder. `tools/smoke_dist.py` then
+runs every bundled program — an export and a screenshot per family — and fails the build if
+an Addons file, a licence text or an example is missing. Under `CI` it starts the editors
+only as far as their argument parsers: a runner has no desktop, and a windowed program that
+cannot draw waits rather than fails. The
+icons are drawn from the editors' own glyphs by `tools/make_icons.py`.
 
-On Windows the editor is a windowed program: `temple-gen.exe --params x.xml --screenshot
-x.png` works but hands the shell back at once; anything that has to print goes through
-`mandapa.exe`.
+On Windows the editors are windowed programs: `temple-gen.exe --params x.xml --screenshot
+x.png` (and the same for `gopuram-gen.exe`) works but hands the shell back at once;
+anything that has to print goes through `mandapa.exe` or `gopuram.exe`.
 
 `.github/workflows/ci.yml` lints, tests and builds the folder on `windows-latest` — the
 platform that ships — with the same `devtool build`, keeps it as a workflow artifact, and

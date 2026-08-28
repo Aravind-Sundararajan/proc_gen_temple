@@ -3,13 +3,15 @@ rem Developer verbs for proc_gen_temple.  devtool.sh carries the same verbs; kee
 rem
 rem   devtool setup        install the venv with the build group (poetry)
 rem   devtool test [args]  pytest; args go to pytest (-k, paths, -x ...)
-rem   devtool fuzz         the 150-seed union fuzz and every range edge
-rem   devtool lint         ruff over the package, tests and tools
+rem   devtool fuzz         the 150-seed union fuzz and every range edge, both buildings
+rem   devtool lint         ruff over the packages, tests and tools
 rem   devtool check        lint then test: the pre-push gate
-rem   devtool run [args]   the editor
-rem   devtool export ...   the headless command (mandapa ...)
-rem   devtool shot NAME    render examples\NAME.xml to out\NAME.png
-rem   devtool icons        draw build\icons\mandapa.{ico,icns,png} from the app's own icon
+rem   devtool run [args]   the mandapa editor
+rem   devtool export ...   the mandapa headless command
+rem   devtool grun [args]  the gopuram editor
+rem   devtool gexport ...  the gopuram headless command
+rem   devtool shot NAME    render examples\NAME.xml (or examples\gopuram\NAME.xml) to out\NAME.png
+rem   devtool icons        draw build\icons\{mandapa,gopuram}.{ico,icns,png} from the apps' own glyphs
 rem   devtool licenses     fetch the LGPL-3.0 and GPL-3.0 texts into licenses\ (commit them)
 rem   devtool build        icons, then the PyInstaller folder, then the smoke test
 rem   devtool smoke        smoke-test an existing dist\proc_gen_temple
@@ -38,6 +40,8 @@ if /i "%verb%"=="lint"     goto lint
 if /i "%verb%"=="check"    goto check
 if /i "%verb%"=="run"      goto run
 if /i "%verb%"=="export"   goto export
+if /i "%verb%"=="grun"     goto grun
+if /i "%verb%"=="gexport"  goto gexport
 if /i "%verb%"=="shot"     goto shot
 if /i "%verb%"=="icons"    goto icons
 if /i "%verb%"=="licenses" goto licenses
@@ -61,11 +65,11 @@ goto end
 
 :fuzz
 if not defined MANDAPA_FUZZ set "MANDAPA_FUZZ=150"
-poetry run pytest -q tests\test_builder.py -k "fuzz or edge" %rest%
+poetry run pytest -q tests\test_builder.py tests\test_gopuram_builder.py -k "fuzz or edge" %rest%
 goto end
 
 :lint
-poetry run ruff check mandapa tests tools %rest%
+poetry run ruff check mandapa gopuram tests tools %rest%
 goto end
 
 :check
@@ -80,13 +84,28 @@ goto end
 poetry run mandapa %rest%
 goto end
 
+:grun
+poetry run gopuram-gen %rest%
+goto end
+
+:gexport
+poetry run gopuram %rest%
+goto end
+
 :shot
 if "%arg1%"=="" (
-    echo usage: devtool shot EXAMPLE  ^(a stem from examples\^) 1>&2
+    echo usage: devtool shot EXAMPLE  ^(a stem from examples\ or examples\gopuram\^) 1>&2
     exit /b 2
 )
 if not exist out mkdir out
-poetry run temple-gen --params "examples\%arg1%.xml" --screenshot "out\%arg1%.png" && echo out\%arg1%.png
+if exist "examples\%arg1%.xml" (
+    poetry run temple-gen --params "examples\%arg1%.xml" --screenshot "out\%arg1%.png" && echo out\%arg1%.png
+) else if exist "examples\gopuram\%arg1%.xml" (
+    poetry run gopuram-gen --params "examples\gopuram\%arg1%.xml" --screenshot "out\%arg1%.png" && echo out\%arg1%.png
+) else (
+    echo no examples\%arg1%.xml or examples\gopuram\%arg1%.xml 1>&2
+    exit /b 2
+)
 goto end
 
 :icons

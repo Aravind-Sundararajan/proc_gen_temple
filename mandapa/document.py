@@ -211,12 +211,26 @@ class Document:
 
     Events emitted to subscribers: ``"params"``, ``"look"``, ``"history"`` (anything
     about undo, redo or dirtiness), ``"path"``.
+
+    The three class attributes are the family: the parameter record a fresh document
+    starts from, and the reader and writer of its file format.  ``gopuram.document``
+    subclasses with its own three and inherits every command, event and undo rule,
+    because none of those care which building the record describes.
     """
+
+    #: The parameter class a fresh document starts from; subclasses override.
+    PARAMS = MandapaParams
+    #: Reads a path into a :class:`~mandapa.io.temple_xml.TempleFile`-shaped record.
+    LOAD = staticmethod(load_any)
+    #: Writes ``(path, params, look, camera, name=...)``; what :meth:`save` calls.
+    SAVE = staticmethod(save_temple)
+    #: The word the family's errors use for its documents.
+    KIND = "temple"
 
     def __init__(
         self, params: MandapaParams | None = None, look: Look | None = None, path: Path | None = None
     ):
-        self._params = params or MandapaParams()
+        self._params = params or type(self).PARAMS()
         self._look = look or Look()
         self._path = Path(path) if path else None
         self._undo: list[Command] = []
@@ -245,7 +259,7 @@ class Document:
         file under a name nobody chose.
         """
         path = Path(path)
-        file = load_any(path)
+        file = cls.LOAD(path)
         legacy = path.suffix.lower() != ".xml"
         document = cls(file.params, file.look, None if legacy else path)
         document.camera = file.camera
@@ -265,10 +279,10 @@ class Document:
         if target is None:
             raise ValueError("document has no path; pass one")
         if target.suffix.lower() != ".xml":
-            raise ValueError(f"a temple document is XML; {target} does not end in .xml")
+            raise ValueError(f"a {self.KIND} document is XML; {target} does not end in .xml")
         if camera is not None:
             self.camera = camera
-        save_temple(target, self._params, self._look, self.camera, name=self.title)
+        type(self).SAVE(target, self._params, self._look, self.camera, name=self.title)
         self.path = target
         self.mark_saved()
         return target

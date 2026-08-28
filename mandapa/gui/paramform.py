@@ -1,4 +1,9 @@
-"""The parameter panel: generated from :class:`MandapaParams`, driven by the Document.
+"""The parameter panel: generated from the document's parameter class, driven by the Document.
+
+Which class that is comes from the document itself (``type(document.params)``), so the
+same form serves the mandapa's editor and the gopuram's: every field with the ``P()``
+metadata gets a control, and the section order is the declaration order — the params
+modules declare their fields grouped, so the panel reads like the file.
 
 The form never holds the truth.  Every control submits a command and then waits to be
 told what the document now says, so a value arriving from anywhere — undo, a preset, a
@@ -27,7 +32,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..document import Document, SetParams
-from ..params import GROUPS, MandapaParams, _resolve_type
+from ..params import ParamRecord, _resolve_type
 from . import icons
 from .controls import NumberControl, Section
 from .prefs import Preferences
@@ -61,7 +66,7 @@ class ParamForm(QScrollArea):
         self._rows: dict[str, tuple[str, int]] = {}
         self._meta: dict[str, dict[str, Any]] = {}
         self._labels: dict[str, str] = {}
-        self._defaults = MandapaParams()
+        self._defaults = type(document.params)()
         self._refreshing = False
         self._unsubscribe = document.subscribe(self._on_event)
 
@@ -78,8 +83,8 @@ class ParamForm(QScrollArea):
         self.filter.textChanged.connect(self._apply_filter)
         vbox.addWidget(self.filter)
 
-        groups = list(GROUPS)
-        for name, kind, meta in MandapaParams.specs():
+        groups: list[str] = []
+        for name, kind, meta in type(document.params).specs():
             kind = _resolve_type(kind)
             group = meta["group"]
             if group not in groups:
@@ -181,7 +186,7 @@ class ParamForm(QScrollArea):
         for group, section in self.sections.items():
             section.set_reset_enabled(bool(self._changes_for_reset(group)))
 
-    def values(self) -> MandapaParams:
+    def values(self) -> ParamRecord:
         """What the controls show — the document's parameters, by construction."""
         return self.document.params
 

@@ -55,7 +55,7 @@ jobs:
         run: poetry install --with build --no-interaction
 
       - name: Lint
-        run: poetry run ruff check mandapa tests tools
+        run: poetry run ruff check mandapa gopuram tests tools
 
       - name: Test
         run: poetry run pytest -q

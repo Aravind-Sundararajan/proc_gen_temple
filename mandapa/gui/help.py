@@ -1,16 +1,19 @@
-"""The Help dialog: a view of :mod:`mandapa.help`, plus the verbs the window actually has.
+"""The Help dialog: a view of the family's help module, plus the verbs the window actually has.
 
 The Verbs tab is generated from the window's own actions — their text, their shortcuts,
 their status tips — so it cannot fall behind the toolbar: a key that is not in this dialog
 is a key the program does not have.  The other three tabs render the Qt-free record
 (description, sources, glossary, licences) that the CLI prints as text; nothing is
-authored here twice.
+authored here twice.  Which record is a constructor argument defaulting to
+:mod:`mandapa.help`, so the gopuram's window shows its own glossary through the same
+dialog.
 """
 
 from __future__ import annotations
 
 import importlib.metadata
 from html import escape
+from types import ModuleType
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QKeySequence
@@ -57,8 +60,11 @@ def _table(columns: list[str]) -> QTableWidget:
 
 
 class HelpDialog(QDialog):
-    def __init__(self, actions: dict[str, QAction], parent: QWidget | None = None):
+    def __init__(
+        self, actions: dict[str, QAction], parent: QWidget | None = None, about: ModuleType = about
+    ):
         super().__init__(parent)
+        self.about = about
         self.setWindowTitle(f"Help — {about.APP_NAME}")
         self.resize(760, 580)
         self.tabs = QTabWidget()
@@ -83,8 +89,8 @@ class HelpDialog(QDialog):
         browser.setHtml(html)
         return browser
 
-    @staticmethod
-    def _about_html() -> str:
+    def _about_html(self) -> str:
+        about = self.about
         sources = "".join(
             f"<li><a href='{escape(url)}'>{escape(what)}</a> — {escape(gave)}</li>"
             for what, gave, url in about.SOURCES
@@ -100,8 +106,8 @@ class HelpDialog(QDialog):
             f"<h3>Versions</h3><table>{versions}</table>"
         )
 
-    @staticmethod
-    def _licences_html() -> str:
+    def _licences_html(self) -> str:
+        about = self.about
         rows = []
         for t in about.THIRD_PARTY:
             try:
@@ -149,7 +155,7 @@ class HelpDialog(QDialog):
         self.filter.textChanged.connect(self.set_filter)
         layout.addWidget(self.filter)
         self.glossary_table = _table(["Term", "Meaning"])
-        for term, meaning in sorted(about.GLOSSARY.items()):
+        for term, meaning in sorted(self.about.GLOSSARY.items()):
             row = self.glossary_table.rowCount()
             self.glossary_table.insertRow(row)
             self.glossary_table.setItem(row, 0, QTableWidgetItem(term))

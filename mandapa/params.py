@@ -37,7 +37,7 @@ import json
 import random
 from dataclasses import asdict, dataclass, field, fields, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 # Smallest feature a printer can reproduce reliably, in mm.
 PRINTER_PROFILES: dict[str, float] = {
@@ -90,8 +90,77 @@ def P(
     return field(default=default, metadata=meta)
 
 
+class ParamRecord:
+    """The machinery every parameter family shares; the fields are the family.
+
+    :class:`MandapaParams` and the gopuram's ``GopuramParams`` are both dataclasses of
+    :func:`P` fields over this mixin, which is what lets the parameter panel, the XML
+    format, ``--set`` and the clamping rule serve both buildings from one spelling.
+    The mixin assumes only what :func:`P` guarantees: four field types and complete
+    metadata.  Family taste — ``randomized``, the side sets — stays on the subclass.
+    """
+
+    @property
+    def min_feature(self) -> float:
+        return PRINTER_PROFILES.get(self.printer_profile, 0.0)
+
+    @classmethod
+    def specs(cls) -> list[tuple[str, type, dict[str, Any]]]:
+        """Field name, declared type and GUI metadata, in declaration order."""
+        return [(f.name, f.type, dict(f.metadata)) for f in fields(cls)]
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Build from a dict, ignoring unknown keys and coercing types of known ones."""
+        kwargs: dict[str, Any] = {}
+        for f in fields(cls):
+            if f.name not in data:
+                continue
+            value = data[f.name]
+            kind = _resolve_type(f.type)
+            if kind is bool and isinstance(value, str):
+                # ``bool("false")`` is True; files and ``--set`` hand us words, not truth values.
+                value = value.strip().lower() in ("1", "true", "yes", "on")
+            try:
+                kwargs[f.name] = kind(value)
+            except (TypeError, ValueError):
+                continue
+        return cls(**kwargs)
+
+    def save(self, path: str | Path) -> None:
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(self.to_dict(), indent=2), encoding="utf-8")
+
+    @classmethod
+    def load(cls, path: str | Path) -> Self:
+        return cls.from_dict(json.loads(Path(path).read_text(encoding="utf-8")))
+
+    def with_(self, **changes: Any) -> Self:
+        return replace(self, **changes)
+
+    def clamped(self) -> Self:
+        """Copy with every numeric field pulled inside its declared range."""
+        changes: dict[str, Any] = {}
+        for name, kind, meta in self.specs():
+            value = getattr(self, name)
+            if meta["choices"] is not None:
+                if value not in meta["choices"]:
+                    changes[name] = meta["choices"][0]
+                continue
+            if meta["lo"] is None or isinstance(value, bool):
+                continue
+            clamped = min(max(value, meta["lo"]), meta["hi"])
+            if clamped != value:
+                changes[name] = _resolve_type(kind)(clamped)
+        return replace(self, **changes) if changes else self
+
+
 @dataclass
-class MandapaParams:
+class MandapaParams(ParamRecord):
     """All dimensions are millimetres unless the help text says otherwise.
 
     Defaults describe a 100 mm, sixteen-pillar Chola hall: the size that prints in
@@ -299,64 +368,6 @@ class MandapaParams:
     )
 
     # ---- helpers ------------------------------------------------------------------------
-    @property
-    def min_feature(self) -> float:
-        return PRINTER_PROFILES.get(self.printer_profile, 0.0)
-
-    @classmethod
-    def specs(cls) -> list[tuple[str, type, dict[str, Any]]]:
-        """Field name, declared type and GUI metadata, in declaration order."""
-        return [(f.name, f.type, dict(f.metadata)) for f in fields(cls)]
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> MandapaParams:
-        """Build from a dict, ignoring unknown keys and coercing types of known ones."""
-        kwargs: dict[str, Any] = {}
-        for f in fields(cls):
-            if f.name not in data:
-                continue
-            value = data[f.name]
-            kind = _resolve_type(f.type)
-            if kind is bool and isinstance(value, str):
-                # ``bool("false")`` is True; files and ``--set`` hand us words, not truth values.
-                value = value.strip().lower() in ("1", "true", "yes", "on")
-            try:
-                kwargs[f.name] = kind(value)
-            except (TypeError, ValueError):
-                continue
-        return cls(**kwargs)
-
-    def save(self, path: str | Path) -> None:
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(self.to_dict(), indent=2), encoding="utf-8")
-
-    @classmethod
-    def load(cls, path: str | Path) -> MandapaParams:
-        return cls.from_dict(json.loads(Path(path).read_text(encoding="utf-8")))
-
-    def with_(self, **changes: Any) -> MandapaParams:
-        return replace(self, **changes)
-
-    def clamped(self) -> MandapaParams:
-        """Copy with every numeric field pulled inside its declared range."""
-        changes: dict[str, Any] = {}
-        for name, kind, meta in self.specs():
-            value = getattr(self, name)
-            if meta["choices"] is not None:
-                if value not in meta["choices"]:
-                    changes[name] = meta["choices"][0]
-                continue
-            if meta["lo"] is None or isinstance(value, bool):
-                continue
-            clamped = min(max(value, meta["lo"]), meta["hi"])
-            if clamped != value:
-                changes[name] = _resolve_type(kind)(clamped)
-        return replace(self, **changes) if changes else self
-
     def sides(self, name: str) -> tuple[str, ...]:
         """Compass letters for a side-set field (``kakshasana``, ``jali``, ``steps_sides``)."""
         return SIDE_SETS.get(getattr(self, name), ())

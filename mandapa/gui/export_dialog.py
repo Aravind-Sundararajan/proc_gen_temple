@@ -1,10 +1,12 @@
 """The export dialog: the print options, the format, the destination, a worker.
 
-Built from ``dataclasses.fields(PrintOptions)`` rather than by hand so the print-prep
-module can grow an option and the dialog grows a control — the same rule the parameter
-panel follows with :class:`MandapaParams`.  A bool is a check box, a number a spin box,
-text a line edit, and an optional ``(x, y, z)`` a line edit that reads three numbers or
-nothing.  Field metadata, when present, names and explains the control.
+Built from ``dataclasses.fields()`` of the options class rather than by hand so the
+print-prep module can grow an option and the dialog grows a control — the same rule the
+parameter panel follows with its parameter class.  The class defaults to the mandapa's
+:class:`PrintOptions`; the gopuram's window passes its own, together with the prepare
+function that understands it.  A bool is a check box, a number a spin box, text a line
+edit, and an optional ``(x, y, z)`` a line edit that reads three numbers or nothing.
+Field metadata, when present, names and explains the control.
 
 The union and the splitting run in :class:`ExportWorker`; the dialog shows a busy bar,
 disables its form, and never blocks the window behind it.  The per-part report goes to
@@ -41,7 +43,7 @@ from PySide6.QtWidgets import (
 
 from .. import export as export_module
 from ..builder import Build
-from ..printprep import PrintOptions
+from ..printprep import PrintOptions, prepare_parts
 from .workers import ExportOutcome, ExportWorker
 
 __all__ = ["FORMATS", "ExportDialog", "option_kind", "threemf_available"]
@@ -94,11 +96,11 @@ def option_kind(annotation: Any) -> str:
     return "str"
 
 
-def _annotations() -> dict[str, Any]:
+def _annotations(options_cls: type = PrintOptions) -> dict[str, Any]:
     try:
-        return typing.get_type_hints(PrintOptions)
+        return typing.get_type_hints(options_cls)
     except Exception:  # noqa: BLE001 - fall back to the raw (string) annotations
-        return {f.name: f.type for f in fields(PrintOptions)}
+        return {f.name: f.type for f in fields(options_cls)}
 
 
 class ExportDialog(QDialog):
@@ -113,11 +115,15 @@ class ExportDialog(QDialog):
         parent: QWidget | None = None,
         suggested: Path | None = None,
         bed: tuple[float, float, float] | None = None,
+        options_cls: type = PrintOptions,
+        prepare=prepare_parts,
     ):
         super().__init__(parent)
         self.setWindowTitle("Export for printing")
         # Not ``self.result``: QDialog.result() is a method, and shadowing it breaks exec().
         self.build_result = result
+        self.options_cls = options_cls
+        self.prepare = prepare
         self._worker: ExportWorker | None = None
         self.widgets: dict[str, QWidget] = {}
         self.kinds: dict[str, str] = {}
@@ -128,8 +134,8 @@ class ExportDialog(QDialog):
         self.form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
 
-        hints = _annotations()
-        for field in fields(PrintOptions):
+        hints = _annotations(options_cls)
+        for field in fields(options_cls):
             kind = option_kind(hints.get(field.name, field.type))
             default = field.default if field.default is not MISSING else None
             if field.default_factory is not MISSING:  # type: ignore[misc]
@@ -221,7 +227,7 @@ class ExportDialog(QDialog):
         return edit
 
     def options(self) -> PrintOptions:
-        """Read the form back into a :class:`PrintOptions`; raises ``ValueError`` on bad text."""
+        """Read the form back into the options class; raises ``ValueError`` on bad text."""
         values: dict[str, Any] = {}
         for name, widget in self.widgets.items():
             kind = self.kinds[name]
@@ -240,7 +246,7 @@ class ExportDialog(QDialog):
                     values[name] = tuple(parts)
             else:
                 values[name] = widget.text()
-        return PrintOptions(**values)
+        return self.options_cls(**values)
 
     def format(self) -> str:
         for key, button in self.format_buttons.items():
@@ -280,7 +286,9 @@ class ExportDialog(QDialog):
         path = path.with_suffix(FORMATS[self.format()][1])
         self._set_busy(True)
         self.logged.emit(f"exporting {path.name} ({self.format().upper()})…")
-        self._worker = ExportWorker(self.build_result, options, path, self.format(), self)
+        self._worker = ExportWorker(
+            self.build_result, options, path, self.format(), self, prepare=self.prepare
+        )
         self._worker.done.connect(self._done)
         self._worker.failed.connect(self._failed)
         self._worker.start()
